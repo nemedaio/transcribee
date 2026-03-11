@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <p class="eyebrow">Local-first transcript pipeline</p>
+        <h1>{{ page_title }}</h1>
+        <p class="lede">
+          Paste one video URL, download audio locally, transcribe with a Whisper-style model,
+          and return the transcript through a minimal web UI.
+        </p>
+      </section>
+
+      <section class="card">
+        <form class="url-form">
+          <label for="video-url">Video URL</label>
+          <input
+            id="video-url"
+            name="video_url"
+            type="url"
+            placeholder="https://www.linkedin.com/..."
+            disabled
+          />
+          <button type="submit" disabled>Create transcript job</button>
+        </form>
+        <p class="status">{{ status }}</p>
+      </section>
+    </main>
+  </body>
+</html>
