@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <p class="eyebrow">Transcription job</p>
+        <h1>Job {{ job.id }}</h1>
+        <p class="lede">
+          This branch stores and exposes job state. Media fetching and transcription will update
+          this page in the next implementation branches.
+        </p>
+      </section>
+
+      <section class="card job-card" data-job-id="{{ job.id }}">
+        <dl class="job-grid">
+          <div>
+            <dt>Status</dt>
+            <dd id="job-status">{{ job.status }}</dd>
+          </div>
+          <div>
+            <dt>Provider</dt>
+            <dd>{{ job.provider }}</dd>
+          </div>
+          <div>
+            <dt>Domain</dt>
+            <dd>{{ job.source_domain }}</dd>
+          </div>
+          <div>
+            <dt>Normalized URL</dt>
+            <dd class="job-url">{{ job.normalized_url }}</dd>
+          </div>
+        </dl>
+        <p class="status">
+          Polling is ready through <code>/api/jobs/{{ job.id }}</code>. Current branch keeps jobs in
+          <strong>queued</strong> status until the fetcher and transcription workers are added.
+        </p>
+        <p><a href="/">Create another job</a></p>
+      </section>
+    </main>
+  </body>
+</html>

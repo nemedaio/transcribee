@@ -26,6 +26,7 @@ That keeps the first version easy to run on one machine and avoids introducing a
 docs/                         Architecture, roadmap, branch strategy
 src/lnkdn_transcripts/        Application code
 src/lnkdn_transcripts/routes/ HTTP routes
+src/lnkdn_transcripts/storage/ Persistence layer
 src/lnkdn_transcripts/services/
 src/lnkdn_transcripts/templates/
 src/lnkdn_transcripts/static/
@@ -46,14 +47,54 @@ Detailed notes live in [`docs/architecture.md`](./docs/architecture.md) and [`do
 ## Local setup
 
 ```bash
-python3 -m venv .venv
+/opt/homebrew/bin/python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn lnkdn_transcripts.main:app --reload
 ```
 
-The app expects `ffmpeg` to be installed on the host machine.
+The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. The current branch was verified with Python 3.12 on macOS.
 
-## Current status
+## Current branch status
 
-This repository currently contains the bootstrap structure and a running skeleton app. The transcription pipeline modules are intentionally stubbed so we can implement them on focused branches.
+`codex/job-models` adds the first persistent workflow:
+
+- submit one video URL
+- store a transcription job in SQLite
+- fetch job status over JSON
+- show a basic job detail page in the browser
+
+Jobs are currently created in `queued` status. Media download and transcription land on the next branches.
+
+## Logging
+
+The app emits structured-enough application logs with timestamps, logger name, and a clear event message for:
+
+- app startup
+- database initialization
+- job creation
+- job lookup failures
+
+This is intentionally simple for local development and easy terminal debugging.
+
+## API snapshot
+
+```text
+GET  /health
+GET  /
+POST /jobs
+GET  /jobs/{job_id}
+POST /api/jobs
+GET  /api/jobs/{job_id}
+GET  /api/jobs
+```
+
+## Tests
+
+Current automated coverage focuses on the first backend contract:
+
+- healthcheck
+- job creation through the JSON API
+- recent jobs listing
+- 404 handling for missing jobs
+- form submission and job detail rendering

@@ -1,12 +1,6 @@
 from fastapi.testclient import TestClient
 
-from lnkdn_transcripts.main import app
-
-
-client = TestClient(app)
-
-
-def test_healthcheck() -> None:
+def test_healthcheck(client: TestClient) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200

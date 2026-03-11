@@ -18,18 +18,31 @@
       </section>
 
       <section class="card">
-        <form class="url-form">
+        <form class="url-form" method="post" action="/jobs">
           <label for="video-url">Video URL</label>
           <input
             id="video-url"
             name="video_url"
             type="url"
             placeholder="https://www.linkedin.com/..."
-            disabled
+            required
           />
-          <button type="submit" disabled>Create transcript job</button>
+          <button type="submit">Create transcript job</button>
         </form>
         <p class="status">{{ status }}</p>
+
+        {% if recent_jobs %}
+        <div class="recent-jobs">
+          <h2>Recent jobs</h2>
+          <ul>
+            {% for job in recent_jobs %}
+            <li>
+              <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status }} · {{ job.source_domain }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       </section>
     </main>
   </body>
