@@ -94,6 +94,10 @@ h1 {
   margin-top: 16px;
 }
 
+.compact-form {
+  margin-top: 0;
+}
+
 .inline-form button {
   min-height: 44px;
   border-radius: 12px;
@@ -200,6 +204,14 @@ h1 {
   border-top: 1px solid var(--border);
 }
 
+.dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
 .history-item {
   padding: 18px 0;
   border-bottom: 1px solid var(--border);
@@ -267,6 +279,11 @@ h1 {
 
   .stats-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .dashboard-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .job-grid {

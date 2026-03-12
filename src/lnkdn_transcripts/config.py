@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     media_dir: str | None = None
     database_url: str | None = None
+    extracted_audio_format: str = "wav"
+    extracted_audio_sample_rate: int = 16000
+    extracted_audio_channels: int = 1
+    retain_source_media: bool = False
+    artifact_retention_days: int = 7
     whisper_model: str = "base"
     whisper_device: str = "auto"
     whisper_compute_type: str = "default"

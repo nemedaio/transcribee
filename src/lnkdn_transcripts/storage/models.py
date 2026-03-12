@@ -27,6 +27,7 @@ class TranscriptJob(SQLModel, table=True):
     provider: str = Field(default="generic", index=True)
     status: JobStatus = Field(default=JobStatus.QUEUED, index=True)
     media_title: str | None = None
+    source_media_path: str | None = None
     media_file_path: str | None = None
     media_duration_seconds: int | None = None
     source_media_id: str | None = None
@@ -39,8 +40,10 @@ class TranscriptJob(SQLModel, table=True):
     last_error: str | None = None
     fetch_started_at: datetime | None = None
     fetch_completed_at: datetime | None = None
+    audio_prepared_at: datetime | None = None
     transcription_started_at: datetime | None = None
     transcription_completed_at: datetime | None = None
+    artifacts_cleaned_at: datetime | None = None
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
@@ -55,6 +58,7 @@ class JobRead(SQLModel):
     provider: str
     status: JobStatus
     media_title: str | None
+    source_media_path: str | None
     media_file_path: str | None
     media_duration_seconds: int | None
     source_media_id: str | None
@@ -66,8 +70,10 @@ class JobRead(SQLModel):
     last_error: str | None
     fetch_started_at: datetime | None
     fetch_completed_at: datetime | None
+    audio_prepared_at: datetime | None
     transcription_started_at: datetime | None
     transcription_completed_at: datetime | None
+    artifacts_cleaned_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -79,3 +85,9 @@ class DashboardCounts(SQLModel):
     completed: int
     failed: int
     total: int
+
+
+class CleanupSummary(SQLModel):
+    jobs_cleaned: int
+    files_deleted: int
+    directories_deleted: int

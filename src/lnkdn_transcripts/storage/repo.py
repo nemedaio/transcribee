@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import datetime
 import json
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine,
 
 from lnkdn_transcripts.config import Settings
 from lnkdn_transcripts.logging import get_logger
+from lnkdn_transcripts.services.audio import PreparedAudio
 from lnkdn_transcripts.services.fetcher import FetchedMedia
 from lnkdn_transcripts.services.transcriber import TranscriptionResult
 from lnkdn_transcripts.storage.models import DashboardCounts, JobStatus, TranscriptJob, utc_now
@@ -33,18 +35,21 @@ def _migrate_sqlite_transcript_job_table(engine) -> None:
 
     expected_columns = {
         "media_title": "TEXT",
+        "source_media_path": "TEXT",
         "media_file_path": "TEXT",
         "media_duration_seconds": "INTEGER",
         "source_media_id": "TEXT",
         "extractor_name": "TEXT",
         "fetch_started_at": "TIMESTAMP",
         "fetch_completed_at": "TIMESTAMP",
+        "audio_prepared_at": "TIMESTAMP",
         "transcript_language": "TEXT",
         "transcript_segment_count": "INTEGER",
         "transcript_segments_json": "TEXT",
         "retry_count": "INTEGER DEFAULT 0",
         "transcription_started_at": "TIMESTAMP",
         "transcription_completed_at": "TIMESTAMP",
+        "artifacts_cleaned_at": "TIMESTAMP",
     }
     existing_columns = {column["name"] for column in inspect(engine).get_columns("transcriptjob")}
 
@@ -112,6 +117,7 @@ class JobRepository:
             job.status = JobStatus.FETCHING
             job.last_error = None
             job.media_title = None
+            job.source_media_path = None
             job.media_file_path = None
             job.media_duration_seconds = None
             job.source_media_id = None
@@ -121,8 +127,10 @@ class JobRepository:
             job.transcript_segment_count = None
             job.transcript_segments_json = None
             job.fetch_completed_at = None
+            job.audio_prepared_at = None
             job.transcription_started_at = None
             job.transcription_completed_at = None
+            job.artifacts_cleaned_at = None
             job.fetch_started_at = utc_now()
             job.updated_at = utc_now()
             session.add(job)
@@ -137,12 +145,15 @@ class JobRepository:
                 raise LookupError(f"Job {job_id} not found")
             job.status = JobStatus.FETCHED
             job.media_title = fetched_media.title
-            job.media_file_path = fetched_media.local_path
+            job.source_media_path = fetched_media.local_path
+            job.media_file_path = None
             job.media_duration_seconds = fetched_media.duration_seconds
             job.source_media_id = fetched_media.source_id
             job.extractor_name = fetched_media.extractor
             job.last_error = None
             job.fetch_completed_at = utc_now()
+            job.audio_prepared_at = None
+            job.artifacts_cleaned_at = None
             job.updated_at = utc_now()
             session.add(job)
             session.commit()
@@ -159,6 +170,31 @@ class JobRepository:
             job.fetch_completed_at = utc_now()
             job.transcription_started_at = None
             job.transcription_completed_at = None
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def mark_audio_prepared(self, job_id: str, prepared_audio: PreparedAudio) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.media_file_path = prepared_audio.local_path
+            job.audio_prepared_at = utc_now()
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def clear_source_media_path(self, job_id: str) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.source_media_path = None
             job.updated_at = utc_now()
             session.add(job)
             session.commit()
@@ -232,6 +268,7 @@ class JobRepository:
             job.status = JobStatus.QUEUED
             job.last_error = None
             job.media_title = None
+            job.source_media_path = None
             job.media_file_path = None
             job.media_duration_seconds = None
             job.source_media_id = None
@@ -242,9 +279,37 @@ class JobRepository:
             job.transcript_segments_json = None
             job.fetch_started_at = None
             job.fetch_completed_at = None
+            job.audio_prepared_at = None
             job.transcription_started_at = None
             job.transcription_completed_at = None
+            job.artifacts_cleaned_at = None
             job.retry_count += 1
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def list_finished_jobs_before(self, cutoff: datetime, limit: int = 100) -> list[TranscriptJob]:
+        with Session(self.engine) as session:
+            statement = (
+                select(TranscriptJob)
+                .where(TranscriptJob.status.in_([JobStatus.COMPLETED, JobStatus.FAILED]))
+                .where(TranscriptJob.updated_at < cutoff)
+                .where((TranscriptJob.source_media_path.is_not(None)) | (TranscriptJob.media_file_path.is_not(None)))
+                .order_by(TranscriptJob.updated_at.asc())
+                .limit(limit)
+            )
+            return list(session.exec(statement))
+
+    def mark_artifacts_cleaned(self, job_id: str) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.source_media_path = None
+            job.media_file_path = None
+            job.artifacts_cleaned_at = utc_now()
             job.updated_at = utc_now()
             session.add(job)
             session.commit()

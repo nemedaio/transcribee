@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.services.jobs import InvalidRetryError
-from lnkdn_transcripts.storage.models import DashboardCounts, JobRead
+from lnkdn_transcripts.storage.models import CleanupSummary, DashboardCounts, JobRead
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -57,3 +57,8 @@ def retry_job(job_id: str, request: Request) -> JobRead:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     refreshed = _job_service(request).get_job(job.id)
     return JobRead.model_validate(refreshed)
+
+
+@router.post("/maintenance/cleanup-artifacts", response_model=CleanupSummary)
+def cleanup_artifacts(request: Request) -> CleanupSummary:
+    return _job_service(request).cleanup_expired_artifacts()

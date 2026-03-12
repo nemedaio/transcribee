@@ -57,11 +57,12 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 
 ## Current branch status
 
-`codex/dashboard-retries` extends the persistent workflow:
+`codex/audio-extraction-cleanup` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
 - fetch media locally with `yt-dlp`
+- extract transcription-ready audio locally with `ffmpeg`
 - transcribe fetched media locally with `faster-whisper`
 - persist fetched artifact metadata, transcript output, segment timings, and processing errors
 - download completed transcripts as TXT, Markdown, SRT, and VTT
@@ -70,6 +71,8 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 - normalize LinkedIn URLs more aggressively and reject non-post/non-video LinkedIn pages with clearer errors
 - expose a dashboard with live status counts and dedicated active/failed/completed sections
 - retry failed jobs from the dashboard, history page, or job detail page
+- clean up raw downloaded media after audio extraction when configured
+- run retention cleanup for old finished-job artifacts from the dashboard or API
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -105,10 +108,12 @@ GET  /
 GET  /dashboard
 POST /jobs
 POST /jobs/{job_id}/retry
+POST /dashboard/cleanup
 GET  /jobs/{job_id}
 POST /api/jobs
 GET  /api/dashboard
 POST /api/jobs/{job_id}/retry
+POST /api/maintenance/cleanup-artifacts
 GET  /api/jobs/{job_id}
 GET  /api/jobs
 ```
@@ -128,6 +133,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - queued job submission and later completion through the background runner
 - LinkedIn-specific normalization and validation rules
 - dashboard status counts and retry flow
+- ffmpeg-style audio preparation and artifact cleanup
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

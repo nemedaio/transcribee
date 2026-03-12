@@ -9,6 +9,8 @@ from lnkdn_transcripts.logging import configure_logging, get_logger
 from lnkdn_transcripts.routes.api import router as api_router
 from lnkdn_transcripts.routes.health import router as health_router
 from lnkdn_transcripts.routes.web import router as web_router
+from lnkdn_transcripts.services.artifacts import ArtifactCleanupService
+from lnkdn_transcripts.services.audio import AudioPreparer, FfmpegAudioPreparer
 from lnkdn_transcripts.services.background_jobs import JobRunner, ThreadedJobRunner
 from lnkdn_transcripts.services.exporters import TranscriptExporter
 from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
@@ -22,6 +24,7 @@ logger = get_logger(__name__)
 def create_app(
     app_settings: Settings | None = None,
     media_fetcher: MediaFetcher | None = None,
+    audio_preparer: AudioPreparer | None = None,
     media_transcriber: MediaTranscriber | None = None,
     job_runner_factory: Callable[[Callable[[str], None]], JobRunner] | None = None,
 ) -> FastAPI:
@@ -29,6 +32,7 @@ def create_app(
     configure_logging(resolved_settings.log_level)
     engine = create_engine(resolved_settings)
     resolved_media_fetcher = media_fetcher or YtDlpMediaFetcher(resolved_settings)
+    resolved_audio_preparer = audio_preparer or FfmpegAudioPreparer(resolved_settings)
     resolved_media_transcriber = media_transcriber or FasterWhisperTranscriber(resolved_settings)
 
     @asynccontextmanager
@@ -42,12 +46,16 @@ def create_app(
     app.state.settings = resolved_settings
     app.state.job_repository = JobRepository(engine)
     app.state.media_fetcher = resolved_media_fetcher
+    app.state.audio_preparer = resolved_audio_preparer
     app.state.media_transcriber = resolved_media_transcriber
+    app.state.artifact_cleanup_service = ArtifactCleanupService(resolved_settings)
     app.state.transcript_exporter = TranscriptExporter()
     app.state.job_service = JobService(
         app.state.job_repository,
         resolved_media_fetcher,
+        resolved_audio_preparer,
         resolved_media_transcriber,
+        app.state.artifact_cleanup_service,
     )
     app.state.job_runner = (
         job_runner_factory(app.state.job_service.process_job)

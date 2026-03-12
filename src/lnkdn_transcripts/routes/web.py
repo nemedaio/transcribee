@@ -46,6 +46,7 @@ def dashboard(request: Request) -> HTMLResponse:
             "active_jobs": active_jobs,
             "failed_jobs": failed_jobs,
             "recent_completed_jobs": recent_completed_jobs,
+            "retention_days": request.app.state.settings.artifact_retention_days,
         },
     )
 
@@ -84,6 +85,12 @@ def retry_job(request: Request, job_id: str) -> RedirectResponse:
     except InvalidRetryError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/cleanup")
+def cleanup_dashboard_artifacts(request: Request) -> RedirectResponse:
+    request.app.state.job_service.cleanup_expired_artifacts()
+    return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/jobs/{job_id}", response_class=HTMLResponse)

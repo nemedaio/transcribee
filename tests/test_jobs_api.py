@@ -14,14 +14,16 @@ def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
     assert body["source_domain"] == "www.linkedin.com"
     assert body["normalized_url"].startswith("https://www.linkedin.com/")
     assert body["media_title"] == "Test media title"
+    assert body["source_media_path"] is None
     assert body["media_duration_seconds"] == 83
-    assert body["media_file_path"].startswith("/tmp/")
+    assert body["media_file_path"].endswith(".wav")
     assert body["extractor_name"] == "fake"
-    assert body["transcript_text"].startswith("Transcript for /tmp/")
+    assert body["transcript_text"].endswith(".wav")
     assert body["transcript_language"] == "en"
     assert body["transcript_segment_count"] == 2
     assert body["fetch_started_at"] is not None
     assert body["fetch_completed_at"] is not None
+    assert body["audio_prepared_at"] is not None
     assert body["transcription_started_at"] is not None
     assert body["transcription_completed_at"] is not None
     assert body["id"]
@@ -47,9 +49,11 @@ def test_fetch_failure_is_persisted(fetch_failing_client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "failed"
     assert body["last_error"] == "download failed"
+    assert body["source_media_path"] is None
     assert body["media_file_path"] is None
     assert body["fetch_started_at"] is not None
     assert body["fetch_completed_at"] is not None
+    assert body["audio_prepared_at"] is None
     assert body["transcription_started_at"] is None
     assert body["transcription_completed_at"] is None
 
@@ -61,12 +65,27 @@ def test_transcription_failure_is_persisted(transcription_failing_client: TestCl
     body = response.json()
     assert body["status"] == "failed"
     assert body["last_error"] == "transcription failed"
+    assert body["source_media_path"] is None
     assert body["media_file_path"] is not None
     assert body["transcript_text"] is None
     assert body["fetch_started_at"] is not None
     assert body["fetch_completed_at"] is not None
+    assert body["audio_prepared_at"] is not None
     assert body["transcription_started_at"] is not None
     assert body["transcription_completed_at"] is not None
+
+
+def test_audio_extraction_failure_is_persisted(audio_failing_client: TestClient) -> None:
+    response = audio_failing_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["last_error"] == "audio extraction failed"
+    assert body["source_media_path"] is not None
+    assert body["media_file_path"] is None
+    assert body["audio_prepared_at"] is None
+    assert body["transcription_started_at"] is None
 
 
 def test_get_missing_job_returns_404(client: TestClient) -> None:
@@ -201,6 +220,7 @@ def test_retry_failed_job_requeues_and_completes(queued_client: TestClient) -> N
     retried = response.json()
     assert retried["status"] == "queued"
     assert retried["retry_count"] == 1
+    assert retried["source_media_path"] is None
     assert retried["media_file_path"] is None
     assert retried["transcript_text"] is None
 
@@ -217,3 +237,17 @@ def test_retry_non_failed_job_is_rejected(queued_client: TestClient) -> None:
 
     assert response.status_code == 409
     assert response.json() == {"detail": "Only failed jobs can be retried"}
+
+
+def test_cleanup_artifacts_clears_finished_job_files(cleanup_client: TestClient) -> None:
+    created = cleanup_client.post("/api/jobs", json={"video_url": "https://example.com/cleanup"}).json()
+
+    response = cleanup_client.post("/api/maintenance/cleanup-artifacts")
+
+    assert response.status_code == 200
+    assert response.json()["jobs_cleaned"] == 1
+    assert response.json()["files_deleted"] >= 1
+
+    refreshed = cleanup_client.get(f"/api/jobs/{created['id']}").json()
+    assert refreshed["media_file_path"] is None
+    assert refreshed["artifacts_cleaned_at"] is not None

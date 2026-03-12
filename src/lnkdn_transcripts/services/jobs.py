@@ -1,10 +1,12 @@
+from lnkdn_transcripts.services.artifacts import ArtifactCleanupService
+from lnkdn_transcripts.services.audio import AudioPreparer
 from lnkdn_transcripts.services.fetcher import MediaFetcher
 from lnkdn_transcripts.services.provider_urls import (
     VideoUrlNormalizer,
 )
 from lnkdn_transcripts.services.transcriber import MediaTranscriber
 from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import DashboardCounts, JobStatus, TranscriptJob
+from lnkdn_transcripts.storage.models import CleanupSummary, DashboardCounts, JobStatus, TranscriptJob
 from lnkdn_transcripts.storage.repo import JobRepository
 
 logger = get_logger(__name__)
@@ -19,11 +21,15 @@ class JobService:
         self,
         repository: JobRepository,
         media_fetcher: MediaFetcher,
+        audio_preparer: AudioPreparer,
         media_transcriber: MediaTranscriber,
+        artifact_cleanup_service: ArtifactCleanupService,
     ) -> None:
         self.repository = repository
         self.media_fetcher = media_fetcher
+        self.audio_preparer = audio_preparer
         self.media_transcriber = media_transcriber
+        self.artifact_cleanup_service = artifact_cleanup_service
         self.url_normalizer = VideoUrlNormalizer()
 
     def create_job(self, raw_url: str) -> TranscriptJob:
@@ -71,6 +77,33 @@ class JobService:
         logger.info("jobs.dashboard total=%s", counts.total)
         return counts
 
+    def cleanup_expired_artifacts(self) -> CleanupSummary:
+        cutoff = self.artifact_cleanup_service.retention_cutoff()
+        jobs = self.repository.list_finished_jobs_before(cutoff=cutoff)
+        files_deleted = 0
+        directories_deleted = 0
+        jobs_cleaned = 0
+
+        for job in jobs:
+            summary = self.artifact_cleanup_service.cleanup_job_artifacts(job)
+            self.repository.mark_artifacts_cleaned(job.id)
+            files_deleted += summary.files_deleted
+            directories_deleted += summary.directories_deleted
+            jobs_cleaned += summary.jobs_cleaned
+
+        logger.info(
+            "jobs.cleanup jobs=%s files=%s directories=%s cutoff=%s",
+            jobs_cleaned,
+            files_deleted,
+            directories_deleted,
+            cutoff.isoformat(),
+        )
+        return CleanupSummary(
+            jobs_cleaned=jobs_cleaned,
+            files_deleted=files_deleted,
+            directories_deleted=directories_deleted,
+        )
+
     def retry_job(self, job_id: str) -> TranscriptJob:
         job = self.repository.get_job(job_id)
         if job is None:
@@ -102,9 +135,37 @@ class JobService:
             "jobs.fetch_succeeded id=%s status=%s path=%s",
             fetched_job.id,
             fetched_job.status,
-            fetched_job.media_file_path,
+            fetched_job.source_media_path,
         )
-        return self.process_transcription(fetched_job.id)
+        return self.process_audio_preparation(fetched_job.id)
+
+    def process_audio_preparation(self, job_id: str) -> TranscriptJob:
+        job = self.repository.get_job(job_id)
+        if job is None:
+            raise LookupError(f"Job {job_id} not found")
+        if not job.source_media_path:
+            failed_job = self.repository.mark_fetch_failed(job.id, "No downloaded media file is available")
+            logger.warning("jobs.audio_prepare_failed id=%s error=%s", failed_job.id, failed_job.last_error)
+            return failed_job
+
+        try:
+            prepared_audio = self.audio_preparer.prepare(job.source_media_path)
+        except Exception as exc:
+            failed_job = self.repository.mark_fetch_failed(job.id, str(exc))
+            logger.warning("jobs.audio_prepare_failed id=%s error=%s", failed_job.id, failed_job.last_error)
+            return failed_job
+
+        prepared_job = self.repository.mark_audio_prepared(job.id, prepared_audio)
+        deleted_files = self.artifact_cleanup_service.cleanup_source_media(prepared_job.source_media_path)
+        if deleted_files:
+            prepared_job = self.repository.clear_source_media_path(prepared_job.id)
+        logger.info(
+            "jobs.audio_prepare_succeeded id=%s audio_path=%s source_deleted=%s",
+            prepared_job.id,
+            prepared_job.media_file_path,
+            bool(deleted_files),
+        )
+        return self.process_transcription(prepared_job.id)
 
     def process_transcription(self, job_id: str) -> TranscriptJob:
         job = self.repository.get_job(job_id)

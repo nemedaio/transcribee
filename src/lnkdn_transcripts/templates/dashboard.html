@@ -45,6 +45,13 @@
       </section>
 
       <section class="card">
+        <div class="dashboard-toolbar">
+          <p class="status">Artifact retention target: {{ retention_days }} day(s)</p>
+          <form method="post" action="/dashboard/cleanup" class="inline-form compact-form">
+            <button type="submit">Run cleanup</button>
+          </form>
+        </div>
+
         <div class="dashboard-section">
           <h2>Active jobs</h2>
           {% if active_jobs %}

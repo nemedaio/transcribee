@@ -40,8 +40,12 @@
             <dd>{{ job.media_title or "Pending fetch metadata" }}</dd>
           </div>
           <div>
-            <dt>Local file</dt>
-            <dd class="job-url">{{ job.media_file_path or "Pending local download" }}</dd>
+            <dt>Source media</dt>
+            <dd class="job-url">{{ job.source_media_path or "Not retained" }}</dd>
+          </div>
+          <div>
+            <dt>Audio file</dt>
+            <dd class="job-url">{{ job.media_file_path or "Pending extracted audio" }}</dd>
           </div>
           <div>
             <dt>Duration</dt>

@@ -27,6 +27,7 @@ def test_job_page_renders_created_job(client: TestClient) -> None:
     assert "Test media title" in response.text
     assert created["media_file_path"] in response.text
     assert created["transcript_text"] in response.text
+    assert "Not retained" in response.text
 
 
 def test_history_page_renders_recent_jobs_and_export_links(client: TestClient) -> None:
@@ -58,3 +59,12 @@ def test_dashboard_page_renders_counts_and_retry_controls(queued_client: TestCli
     assert "Retry job" in response.text
     assert "Queued" in response.text
     assert "Completed" in response.text
+
+
+def test_dashboard_page_renders_cleanup_control(cleanup_client: TestClient) -> None:
+    cleanup_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    response = cleanup_client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "Run cleanup" in response.text
