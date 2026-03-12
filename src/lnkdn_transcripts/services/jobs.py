@@ -1,25 +1,13 @@
-from dataclasses import dataclass
-from urllib.parse import urlsplit, urlunsplit
-
 from lnkdn_transcripts.services.fetcher import MediaFetcher
+from lnkdn_transcripts.services.provider_urls import (
+    VideoUrlNormalizer,
+)
 from lnkdn_transcripts.services.transcriber import MediaTranscriber
 from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.storage.models import TranscriptJob
 from lnkdn_transcripts.storage.repo import JobRepository
 
 logger = get_logger(__name__)
-
-
-class InvalidVideoUrlError(ValueError):
-    """Raised when a submitted URL is not suitable for a transcription job."""
-
-
-@dataclass
-class NormalizedVideoUrl:
-    source_url: str
-    normalized_url: str
-    source_domain: str
-    provider: str
 
 
 class JobService:
@@ -32,9 +20,10 @@ class JobService:
         self.repository = repository
         self.media_fetcher = media_fetcher
         self.media_transcriber = media_transcriber
+        self.url_normalizer = VideoUrlNormalizer()
 
     def create_job(self, raw_url: str) -> TranscriptJob:
-        normalized = self._normalize_url(raw_url)
+        normalized = self.url_normalizer.normalize(raw_url)
         job = TranscriptJob(
             source_url=normalized.source_url,
             normalized_url=normalized.normalized_url,
@@ -120,26 +109,3 @@ class JobService:
             completed_job.transcript_language,
         )
         return completed_job
-
-    def _normalize_url(self, raw_url: str) -> NormalizedVideoUrl:
-        cleaned_url = raw_url.strip()
-        parsed = urlsplit(cleaned_url)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            logger.warning("jobs.invalid_url submitted=%r", raw_url)
-            raise InvalidVideoUrlError("Only absolute http(s) video URLs are supported")
-
-        normalized_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
-        source_domain = parsed.netloc.lower()
-        provider = self._detect_provider(source_domain)
-        return NormalizedVideoUrl(
-            source_url=cleaned_url,
-            normalized_url=normalized_url,
-            source_domain=source_domain,
-            provider=provider,
-        )
-
-    @staticmethod
-    def _detect_provider(source_domain: str) -> str:
-        if "linkedin.com" in source_domain:
-            return "linkedin"
-        return "generic"

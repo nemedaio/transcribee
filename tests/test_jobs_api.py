@@ -127,3 +127,36 @@ def test_queued_job_can_be_completed_later(queued_client: TestClient) -> None:
     refreshed = queued_client.get(f"/api/jobs/{queued_job['id']}")
     assert refreshed.status_code == 200
     assert refreshed.json()["status"] == "completed"
+
+
+def test_linkedin_url_is_normalized_without_tracking_noise(client: TestClient) -> None:
+    response = client.post(
+        "/api/jobs",
+        json={
+            "video_url": "https://es.linkedin.com/feed/update/urn:li:activity:1234567890/?trk=public_post&lipi=abc#fragment"
+        },
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["provider"] == "linkedin"
+    assert body["normalized_url"] == "https://www.linkedin.com/feed/update/urn:li:activity:1234567890"
+
+
+def test_linkedin_company_posts_url_is_allowed(client: TestClient) -> None:
+    response = client.post(
+        "/api/jobs",
+        json={"video_url": "https://www.linkedin.com/company/openai/posts/?feedView=all&trk=public_post_share"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["normalized_url"] == "https://www.linkedin.com/company/openai/posts"
+
+
+def test_linkedin_profile_url_is_rejected(client: TestClient) -> None:
+    response = client.post("/api/jobs", json={"video_url": "https://www.linkedin.com/in/example-person/"})
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "LinkedIn ingestion currently supports post and video URLs, not profile or directory pages"
+    }

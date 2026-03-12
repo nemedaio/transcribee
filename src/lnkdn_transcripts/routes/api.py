@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from lnkdn_transcripts.services.jobs import InvalidVideoUrlError
+from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.storage.models import JobRead
 
 router = APIRouter(prefix="/api", tags=["api"])
