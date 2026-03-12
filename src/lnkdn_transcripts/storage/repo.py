@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import json
 from pathlib import Path
 
 from sqlalchemy import inspect, text
@@ -40,6 +41,7 @@ def _migrate_sqlite_transcript_job_table(engine) -> None:
         "fetch_completed_at": "TIMESTAMP",
         "transcript_language": "TEXT",
         "transcript_segment_count": "INTEGER",
+        "transcript_segments_json": "TEXT",
         "transcription_started_at": "TIMESTAMP",
         "transcription_completed_at": "TIMESTAMP",
     }
@@ -147,6 +149,16 @@ class JobRepository:
             job.transcript_text = result.text
             job.transcript_language = result.language
             job.transcript_segment_count = len(result.segments)
+            job.transcript_segments_json = json.dumps(
+                [
+                    {
+                        "start_seconds": segment.start_seconds,
+                        "end_seconds": segment.end_seconds,
+                        "text": segment.text,
+                    }
+                    for segment in result.segments
+                ]
+            )
             job.last_error = None
             job.transcription_completed_at = utc_now()
             job.updated_at = utc_now()
@@ -162,6 +174,10 @@ class JobRepository:
                 raise LookupError(f"Job {job_id} not found")
             job.status = JobStatus.FAILED
             job.last_error = error_message
+            job.transcript_text = None
+            job.transcript_language = None
+            job.transcript_segment_count = None
+            job.transcript_segments_json = None
             job.transcription_completed_at = utc_now()
             job.updated_at = utc_now()
             session.add(job)

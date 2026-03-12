@@ -59,8 +59,8 @@ class JobService:
         logger.info("jobs.get id=%s status=%s", job.id, job.status)
         return job
 
-    def list_recent_jobs(self) -> list[TranscriptJob]:
-        jobs = self.repository.list_recent_jobs()
+    def list_recent_jobs(self, limit: int = 10) -> list[TranscriptJob]:
+        jobs = self.repository.list_recent_jobs(limit=limit)
         logger.info("jobs.list count=%s", len(jobs))
         return jobs
 

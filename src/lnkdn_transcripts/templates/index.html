@@ -30,6 +30,7 @@
           <button type="submit">Create transcript job</button>
         </form>
         <p class="status">{{ status }}</p>
+        <p class="status"><a href="/history">Browse full history</a></p>
 
         {% if recent_jobs %}
         <div class="recent-jobs">
@@ -38,6 +39,9 @@
             {% for job in recent_jobs %}
             <li>
               <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status.value }} · {{ job.source_domain }}</a>
+              {% if job.transcript_text %}
+              <p class="history-snippet">{{ job.transcript_text[:120] }}{% if job.transcript_text|length > 120 %}...{% endif %}</p>
+              {% endif %}
             </li>
             {% endfor %}
           </ul>

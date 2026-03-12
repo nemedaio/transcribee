@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Form, HTTPException, Request, status
+from fastapi import APIRouter, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from lnkdn_transcripts.services.exporters import IncompleteTranscriptError, UnsupportedExportFormatError
 from lnkdn_transcripts.services.jobs import InvalidVideoUrlError
 
 templates = Jinja2Templates(directory="src/lnkdn_transcripts/templates")
@@ -10,7 +11,7 @@ router = APIRouter(tags=["web"])
 
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
-    recent_jobs = request.app.state.job_service.list_recent_jobs()
+    recent_jobs = request.app.state.job_service.list_recent_jobs(limit=5)
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -19,6 +20,20 @@ def index(request: Request) -> HTMLResponse:
             "page_title": request.app.state.settings.app_name,
             "status": "Submit a URL to fetch media locally and transcribe it with Whisper.",
             "recent_jobs": recent_jobs,
+        },
+    )
+
+
+@router.get("/history", response_class=HTMLResponse)
+def history(request: Request) -> HTMLResponse:
+    recent_jobs = request.app.state.job_service.list_recent_jobs(limit=50)
+    return templates.TemplateResponse(
+        request,
+        "history.html",
+        {
+            "request": request,
+            "page_title": "Transcript History",
+            "jobs": recent_jobs,
         },
     )
 
@@ -46,4 +61,24 @@ def job_detail(request: Request, job_id: str) -> HTMLResponse:
             "page_title": f"Job {job.id}",
             "job": job,
         },
+    )
+
+
+@router.get("/jobs/{job_id}/exports/{format_name}")
+def export_job(request: Request, job_id: str, format_name: str) -> Response:
+    job = request.app.state.job_service.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    try:
+        exported = request.app.state.transcript_exporter.export(job, format_name)
+    except UnsupportedExportFormatError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unsupported export format") from exc
+    except IncompleteTranscriptError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return Response(
+        content=exported.content,
+        media_type=exported.media_type,
+        headers={"Content-Disposition": f'attachment; filename=\"{exported.filename}\"'},
     )

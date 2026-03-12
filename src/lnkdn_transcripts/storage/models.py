@@ -34,6 +34,7 @@ class TranscriptJob(SQLModel, table=True):
     transcript_text: str | None = None
     transcript_language: str | None = None
     transcript_segment_count: int | None = None
+    transcript_segments_json: str | None = None
     last_error: str | None = None
     fetch_started_at: datetime | None = None
     fetch_completed_at: datetime | None = None

@@ -81,3 +81,35 @@ def test_create_job_rejects_invalid_url(client: TestClient) -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Only absolute http(s) video URLs are supported"}
+
+
+def test_export_txt_returns_transcript_download(client: TestClient) -> None:
+    created = client.post("/api/jobs", json={"video_url": "https://example.com/video/1"}).json()
+
+    response = client.get(f"/jobs/{created['id']}/exports/txt")
+
+    assert response.status_code == 200
+    assert response.headers["content-disposition"].endswith('.txt"')
+    assert created["transcript_text"] == response.text
+
+
+def test_export_srt_returns_segment_timestamps(client: TestClient) -> None:
+    created = client.post("/api/jobs", json={"video_url": "https://example.com/video/1"}).json()
+
+    response = client.get(f"/jobs/{created['id']}/exports/srt")
+
+    assert response.status_code == 200
+    assert "00:00:00,000 --> 00:00:01,200" in response.text
+    assert "Transcript" in response.text
+
+
+def test_export_rejects_incomplete_transcript(transcription_failing_client: TestClient) -> None:
+    created = transcription_failing_client.post(
+        "/api/jobs",
+        json={"video_url": "https://example.com/video/1"},
+    ).json()
+
+    response = transcription_failing_client.get(f"/jobs/{created['id']}/exports/txt")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Transcript is not available for export yet"}

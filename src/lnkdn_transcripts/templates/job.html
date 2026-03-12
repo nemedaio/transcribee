@@ -74,11 +74,19 @@
         {% if job.last_error %}
         <p class="status error-text">Last error: {{ job.last_error }}</p>
         {% endif %}
+        {% if job.status.value == "completed" %}
+        <p class="export-links">
+          <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
+          <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
+          <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
+          <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
+        </p>
+        {% endif %}
         <div class="transcript-block">
           <h2>Transcript</h2>
           <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
         </div>
-        <p><a href="/">Create another job</a></p>
+        <p><a href="/">Create another job</a> · <a href="/history">Open history</a></p>
       </section>
     </main>
   </body>

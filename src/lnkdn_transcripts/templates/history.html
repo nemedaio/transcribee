@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <p class="eyebrow">History</p>
+        <h1>{{ page_title }}</h1>
+        <p class="lede">
+          Review recent transcript jobs, inspect their state, and download completed transcripts in
+          multiple formats.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="history-list">
+          {% for job in jobs %}
+          <article class="history-item">
+            <header class="history-header">
+              <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
+              <p>{{ job.status.value }} · {{ job.provider }} · {{ job.source_domain }}</p>
+            </header>
+            {% if job.transcript_text %}
+            <p class="history-snippet">{{ job.transcript_text[:220] }}{% if job.transcript_text|length > 220 %}...{% endif %}</p>
+            {% endif %}
+            <p class="status">Created {{ job.created_at }}</p>
+            {% if job.status.value == "completed" %}
+            <p class="export-links">
+              <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
+              <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
+              <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
+              <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
+            </p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        <p><a href="/">Back to submit</a></p>
+      </section>
+    </main>
+  </body>
+</html>

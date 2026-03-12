@@ -27,3 +27,14 @@ def test_job_page_renders_created_job(client: TestClient) -> None:
     assert "Test media title" in response.text
     assert created["media_file_path"] in response.text
     assert created["transcript_text"] in response.text
+
+
+def test_history_page_renders_recent_jobs_and_export_links(client: TestClient) -> None:
+    client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    response = client.get("/history")
+
+    assert response.status_code == 200
+    assert "Transcript History" in response.text
+    assert "TXT" in response.text
+    assert "SRT" in response.text

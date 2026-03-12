@@ -8,6 +8,7 @@ from lnkdn_transcripts.logging import configure_logging, get_logger
 from lnkdn_transcripts.routes.api import router as api_router
 from lnkdn_transcripts.routes.health import router as health_router
 from lnkdn_transcripts.routes.web import router as web_router
+from lnkdn_transcripts.services.exporters import TranscriptExporter
 from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
 from lnkdn_transcripts.services.transcriber import FasterWhisperTranscriber, MediaTranscriber
 from lnkdn_transcripts.services.jobs import JobService
@@ -38,6 +39,7 @@ def create_app(
     app.state.job_repository = JobRepository(engine)
     app.state.media_fetcher = resolved_media_fetcher
     app.state.media_transcriber = resolved_media_transcriber
+    app.state.transcript_exporter = TranscriptExporter()
     app.state.job_service = JobService(
         app.state.job_repository,
         resolved_media_fetcher,
