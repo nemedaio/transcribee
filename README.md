@@ -95,7 +95,7 @@ With auth enabled:
 
 ## Current branch status
 
-`codex/auth-access-controls` extends the persistent workflow:
+`codex/access-admin-api` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -115,6 +115,7 @@ With auth enabled:
 - support optional allowed-domain checks for Google Workspace accounts
 - store pending, approved, and revoked Google accounts in SQLite
 - expose an admin-only access page for approval and revocation
+- expose admin-only JSON endpoints for listing, approving, and revoking access accounts
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -174,6 +175,9 @@ POST /api/jobs/{job_id}/retry
 POST /api/maintenance/cleanup-artifacts
 GET  /api/jobs/{job_id}
 GET  /api/jobs
+GET  /api/access/accounts
+POST /api/access/accounts/{account_email}/approve
+POST /api/access/accounts/{account_email}/revoke
 ```
 
 ## Tests
@@ -195,6 +199,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - Google-auth protected web and API access
 - Google test-mode login, logout, and allowed-domain rejection
 - approval-required Google sign-in, admin approval, and revocation flow
+- admin-only access-management JSON API
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

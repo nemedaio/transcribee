@@ -1,9 +1,16 @@
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.services.jobs import InvalidRetryError
-from lnkdn_transcripts.storage.models import CleanupSummary, DashboardCounts, JobRead
+from lnkdn_transcripts.storage.models import (
+    AccessAccountRead,
+    AccessRole,
+    AccessStatus,
+    CleanupSummary,
+    DashboardCounts,
+    JobRead,
+)
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -12,8 +19,19 @@ class JobSubmission(BaseModel):
     video_url: str
 
 
+class AccessApprovalPayload(BaseModel):
+    role: AccessRole = AccessRole.MEMBER
+
+
 def _job_service(request: Request):
     return request.app.state.job_service
+
+
+def _require_admin(request: Request):
+    current_user = request.app.state.auth_service.current_user(request)
+    if current_user is None or not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
 
 
 @router.post("/jobs", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED)
@@ -62,3 +80,39 @@ def retry_job(job_id: str, request: Request) -> JobRead:
 @router.post("/maintenance/cleanup-artifacts", response_model=CleanupSummary)
 def cleanup_artifacts(request: Request) -> CleanupSummary:
     return _job_service(request).cleanup_expired_artifacts()
+
+
+@router.get("/access/accounts", response_model=list[AccessAccountRead])
+def list_access_accounts(
+    request: Request,
+    status_filters: list[AccessStatus] | None = Query(None, alias="status"),
+) -> list[AccessAccountRead]:
+    _require_admin(request)
+    statuses = status_filters or [AccessStatus.PENDING, AccessStatus.APPROVED, AccessStatus.REVOKED]
+    accounts = request.app.state.access_repository.list_accounts(statuses=statuses)
+    return [AccessAccountRead.model_validate(account) for account in accounts]
+
+
+@router.post("/access/accounts/{account_email}/approve", response_model=AccessAccountRead)
+def approve_access_account(
+    account_email: str,
+    payload: AccessApprovalPayload,
+    request: Request,
+) -> AccessAccountRead:
+    current_user = _require_admin(request)
+    account = request.app.state.access_repository.approve_account(
+        email=account_email,
+        approved_by_email=current_user.email,
+        role=payload.role,
+    )
+    return AccessAccountRead.model_validate(account)
+
+
+@router.post("/access/accounts/{account_email}/revoke", response_model=AccessAccountRead)
+def revoke_access_account(account_email: str, request: Request) -> AccessAccountRead:
+    _require_admin(request)
+    try:
+        account = request.app.state.access_repository.revoke_account(account_email)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access account not found") from exc
+    return AccessAccountRead.model_validate(account)

@@ -17,6 +17,73 @@ def test_api_accepts_authenticated_requests_when_google_auth_is_enabled(auth_cli
     assert response.json()["status"] == "completed"
 
 
+def test_access_accounts_api_requires_admin(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+    approval_auth_client.get("/auth/logout", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.get("/api/access/accounts")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Admin access required"}
+
+
+def test_admin_can_list_pending_access_accounts_via_api(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.get("/api/access/accounts?status=pending")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["email"] == "member@twyd.ai"
+    assert response.json()[0]["status"] == "pending"
+
+
+def test_admin_can_approve_access_account_via_api(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "member@twyd.ai"
+    assert response.json()["status"] == "approved"
+    assert response.json()["role"] == "member"
+    assert response.json()["approved_by_email"] == "owner@twyd.ai"
+
+
+def test_admin_can_revoke_access_account_via_api(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+
+    response = approval_auth_client.post("/api/access/accounts/member@twyd.ai/revoke")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "member@twyd.ai"
+    assert response.json()["status"] == "revoked"
+
+
+def test_revoking_unknown_access_account_returns_404(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.post("/api/access/accounts/missing@twyd.ai/revoke")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Access account not found"}
+
+
 def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
     response = client.post(
         "/api/jobs",
