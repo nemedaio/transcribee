@@ -73,6 +73,7 @@ def test_admin_can_revoke_access_account_via_api(approval_auth_client: TestClien
     assert response.status_code == 200
     assert response.json()["email"] == "member@twyd.ai"
     assert response.json()["status"] == "revoked"
+    assert response.json()["role"] == "member"
 
 
 def test_revoking_unknown_access_account_returns_404(approval_auth_client: TestClient) -> None:
@@ -82,6 +83,41 @@ def test_revoking_unknown_access_account_returns_404(approval_auth_client: TestC
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Access account not found"}
+
+
+def test_admin_can_list_access_audit_events_via_api(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+    approval_auth_client.post("/api/access/accounts/member@twyd.ai/revoke")
+
+    response = approval_auth_client.get("/api/access/audit?account_email=member@twyd.ai")
+
+    assert response.status_code == 200
+    actions = [event["action"] for event in response.json()]
+    assert "requested" in actions
+    assert "granted" in actions
+    assert "revoked" in actions
+    revoked_event = next(event for event in response.json() if event["action"] == "revoked")
+    assert revoked_event["actor_email"] == "owner@twyd.ai"
+
+
+def test_access_audit_api_requires_admin(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+    approval_auth_client.get("/auth/logout", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.get("/api/access/audit")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Admin access required"}
 
 
 def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:

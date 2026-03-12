@@ -30,6 +30,13 @@ class AccessRole(str, Enum):
     ADMIN = "admin"
 
 
+class AccessAuditAction(str, Enum):
+    REQUESTED = "requested"
+    GRANTED = "granted"
+    SIGNED_IN = "signed_in"
+    REVOKED = "revoked"
+
+
 class TranscriptJob(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
     source_url: str
@@ -70,6 +77,17 @@ class AccessAccount(SQLModel, table=True):
     approved_by_email: str | None = None
     last_login_at: datetime | None = None
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class AccessAuditEvent(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    account_email: str = Field(index=True)
+    action: AccessAuditAction = Field(index=True)
+    actor_email: str | None = None
+    note: str | None = None
+    resulting_status: AccessStatus | None = None
+    resulting_role: AccessRole | None = None
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
 class JobRead(SQLModel):
@@ -130,3 +148,16 @@ class AccessAccountRead(SQLModel):
     approved_by_email: str | None
     last_login_at: datetime | None
     updated_at: datetime
+
+
+class AccessAuditEventRead(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    account_email: str
+    action: AccessAuditAction
+    actor_email: str | None
+    note: str | None
+    resulting_status: AccessStatus | None
+    resulting_role: AccessRole | None
+    created_at: datetime

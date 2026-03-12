@@ -13,6 +13,8 @@ from lnkdn_transcripts.services.fetcher import FetchedMedia
 from lnkdn_transcripts.services.transcriber import TranscriptionResult
 from lnkdn_transcripts.storage.models import (
     AccessAccount,
+    AccessAuditAction,
+    AccessAuditEvent,
     AccessRole,
     AccessStatus,
     DashboardCounts,
@@ -343,6 +345,7 @@ class AccessRepository:
         normalized_email = email.strip().lower()
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
+            created_request = False
             if account is None:
                 account = AccessAccount(
                     email=normalized_email,
@@ -351,12 +354,22 @@ class AccessRepository:
                     display_name=display_name,
                     picture_url=picture_url,
                 )
+                created_request = True
             else:
                 if account.status == AccessStatus.PENDING:
                     account.display_name = display_name or account.display_name
                     account.picture_url = picture_url or account.picture_url
                 account.updated_at = utc_now()
             session.add(account)
+            if created_request:
+                self._append_audit_event(
+                    session,
+                    account_email=normalized_email,
+                    action=AccessAuditAction.REQUESTED,
+                    note="Google access request created",
+                    resulting_status=account.status,
+                    resulting_role=account.role,
+                )
             session.commit()
             session.refresh(account)
             return account
@@ -373,6 +386,7 @@ class AccessRepository:
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             now = utc_now()
+            should_log_grant = False
             if account is None:
                 account = AccessAccount(
                     email=normalized_email,
@@ -385,7 +399,13 @@ class AccessRepository:
                     approved_by_email=approved_by_email,
                     updated_at=now,
                 )
+                should_log_grant = True
             else:
+                should_log_grant = (
+                    account.status != AccessStatus.APPROVED
+                    or account.role != role
+                    or (approved_by_email and account.approved_by_email != approved_by_email)
+                )
                 account.status = AccessStatus.APPROVED
                 account.role = role
                 account.display_name = display_name or account.display_name
@@ -394,6 +414,16 @@ class AccessRepository:
                 account.approved_by_email = approved_by_email or account.approved_by_email
                 account.updated_at = now
             session.add(account)
+            if should_log_grant:
+                self._append_audit_event(
+                    session,
+                    account_email=normalized_email,
+                    action=AccessAuditAction.GRANTED,
+                    actor_email=approved_by_email,
+                    note="Google access granted",
+                    resulting_status=account.status,
+                    resulting_role=account.role,
+                )
             session.commit()
             session.refresh(account)
             return account
@@ -408,6 +438,15 @@ class AccessRepository:
             account.last_login_at = utc_now()
             account.updated_at = utc_now()
             session.add(account)
+            self._append_audit_event(
+                session,
+                account_email=normalized_email,
+                action=AccessAuditAction.SIGNED_IN,
+                actor_email=normalized_email,
+                note="Google sign-in completed",
+                resulting_status=account.status,
+                resulting_role=account.role,
+            )
             session.commit()
             session.refresh(account)
             return account
@@ -420,6 +459,17 @@ class AccessRepository:
                 .order_by(AccessAccount.updated_at.desc())
                 .limit(limit)
             )
+            return list(session.exec(statement))
+
+    def list_audit_events(
+        self,
+        limit: int = 100,
+        account_email: str | None = None,
+    ) -> list[AccessAuditEvent]:
+        with Session(self.engine) as session:
+            statement = select(AccessAuditEvent).order_by(AccessAuditEvent.created_at.desc()).limit(limit)
+            if account_email:
+                statement = statement.where(AccessAuditEvent.account_email == account_email.strip().lower())
             return list(session.exec(statement))
 
     def approve_account(
@@ -439,11 +489,20 @@ class AccessRepository:
             account.approved_by_email = approved_by_email.strip().lower()
             account.updated_at = utc_now()
             session.add(account)
+            self._append_audit_event(
+                session,
+                account_email=normalized_email,
+                action=AccessAuditAction.GRANTED,
+                actor_email=approved_by_email.strip().lower(),
+                note="Admin approval recorded",
+                resulting_status=account.status,
+                resulting_role=account.role,
+            )
             session.commit()
             session.refresh(account)
             return account
 
-    def revoke_account(self, email: str) -> AccessAccount:
+    def revoke_account(self, email: str, actor_email: str | None = None) -> AccessAccount:
         normalized_email = email.strip().lower()
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
@@ -453,6 +512,36 @@ class AccessRepository:
             account.role = AccessRole.MEMBER
             account.updated_at = utc_now()
             session.add(account)
+            self._append_audit_event(
+                session,
+                account_email=normalized_email,
+                action=AccessAuditAction.REVOKED,
+                actor_email=actor_email,
+                note="Access revoked",
+                resulting_status=account.status,
+                resulting_role=account.role,
+            )
             session.commit()
             session.refresh(account)
             return account
+
+    def _append_audit_event(
+        self,
+        session: Session,
+        account_email: str,
+        action: AccessAuditAction,
+        actor_email: str | None = None,
+        note: str | None = None,
+        resulting_status: AccessStatus | None = None,
+        resulting_role: AccessRole | None = None,
+    ) -> None:
+        session.add(
+            AccessAuditEvent(
+                account_email=account_email.strip().lower(),
+                action=action,
+                actor_email=actor_email.strip().lower() if actor_email else None,
+                note=note,
+                resulting_status=resulting_status,
+                resulting_role=resulting_role,
+            )
+        )

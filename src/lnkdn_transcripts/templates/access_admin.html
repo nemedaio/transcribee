@@ -96,5 +96,32 @@
     <p class="status">No revoked accounts.</p>
     {% endif %}
   </div>
+
+  <div class="dashboard-section">
+    <h2>Recent audit events</h2>
+    {% if recent_audit_events %}
+    <div class="history-list">
+      {% for event in recent_audit_events %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2>{{ event.account_email }}</h2>
+          <p>{{ event.action.value }} · actor {{ event.actor_email or "system" }} · {{ event.created_at }}</p>
+        </header>
+        <p class="status">
+          {{ event.note or "No note" }}
+          {% if event.resulting_status %}
+          · status {{ event.resulting_status.value }}
+          {% endif %}
+          {% if event.resulting_role %}
+          · role {{ event.resulting_role.value }}
+          {% endif %}
+        </p>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No audit events yet.</p>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

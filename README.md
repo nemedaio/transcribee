@@ -95,7 +95,7 @@ With auth enabled:
 
 ## Current branch status
 
-`codex/access-admin-api` extends the persistent workflow:
+`codex/access-audit-log` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -116,6 +116,7 @@ With auth enabled:
 - store pending, approved, and revoked Google accounts in SQLite
 - expose an admin-only access page for approval and revocation
 - expose admin-only JSON endpoints for listing, approving, and revoking access accounts
+- store an audit trail for access requests, grants, sign-ins, and revocations
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -150,6 +151,7 @@ Additional auth events are logged for:
 - rejected Google accounts
 - pending access requests
 - access approvals and revocations
+- access audit events for requests, grants, sign-ins, and revocations
 - logout and test-mode login
 
 ## API snapshot
@@ -176,6 +178,7 @@ POST /api/maintenance/cleanup-artifacts
 GET  /api/jobs/{job_id}
 GET  /api/jobs
 GET  /api/access/accounts
+GET  /api/access/audit
 POST /api/access/accounts/{account_email}/approve
 POST /api/access/accounts/{account_email}/revoke
 ```
@@ -200,6 +203,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - Google test-mode login, logout, and allowed-domain rejection
 - approval-required Google sign-in, admin approval, and revocation flow
 - admin-only access-management JSON API
+- access audit history in the admin UI and API
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

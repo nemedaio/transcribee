@@ -145,6 +145,7 @@ def access_admin(request: Request) -> HTMLResponse:
             "pending_accounts": access_repository.list_accounts([AccessStatus.PENDING]),
             "approved_accounts": access_repository.list_accounts([AccessStatus.APPROVED]),
             "revoked_accounts": access_repository.list_accounts([AccessStatus.REVOKED]),
+            "recent_audit_events": access_repository.list_audit_events(limit=25),
             "bootstrap_admin_emails": sorted(request.app.state.auth_service.admin_emails),
             "current_admin_email": current_user.email,
         },
@@ -170,6 +171,9 @@ def approve_access(
 @router.post("/access/revoke")
 def revoke_access(request: Request, email: str = Form(...)) -> RedirectResponse:
     current_user = _require_admin(request)
-    revoked = request.app.state.access_repository.revoke_account(email=email)
+    revoked = request.app.state.access_repository.revoke_account(
+        email=email,
+        actor_email=current_user.email,
+    )
     logger.info("auth.access.revoked email=%s by=%s", revoked.email, current_user.email)
     return RedirectResponse(url="/auth/access", status_code=status.HTTP_303_SEE_OTHER)

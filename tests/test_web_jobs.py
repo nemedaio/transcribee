@@ -114,6 +114,18 @@ def test_member_cannot_open_access_admin_page(approval_auth_client: TestClient) 
     assert response.json() == {"detail": "Admin access required"}
 
 
+def test_access_admin_page_renders_recent_audit_events(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post("/auth/access/approve", data={"email": "member@twyd.ai", "role": "member"})
+
+    response = approval_auth_client.get("/auth/access")
+
+    assert response.status_code == 200
+    assert "Recent audit events" in response.text
+    assert "member@twyd.ai" in response.text
+
+
 def test_form_submission_redirects_to_job_page(client: TestClient) -> None:
     response = client.post(
         "/jobs",

@@ -5,6 +5,7 @@ from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.services.jobs import InvalidRetryError
 from lnkdn_transcripts.storage.models import (
     AccessAccountRead,
+    AccessAuditEventRead,
     AccessRole,
     AccessStatus,
     CleanupSummary,
@@ -93,6 +94,16 @@ def list_access_accounts(
     return [AccessAccountRead.model_validate(account) for account in accounts]
 
 
+@router.get("/access/audit", response_model=list[AccessAuditEventRead])
+def list_access_audit_events(
+    request: Request,
+    account_email: str | None = Query(None),
+) -> list[AccessAuditEventRead]:
+    _require_admin(request)
+    events = request.app.state.access_repository.list_audit_events(account_email=account_email)
+    return [AccessAuditEventRead.model_validate(event) for event in events]
+
+
 @router.post("/access/accounts/{account_email}/approve", response_model=AccessAccountRead)
 def approve_access_account(
     account_email: str,
@@ -110,9 +121,12 @@ def approve_access_account(
 
 @router.post("/access/accounts/{account_email}/revoke", response_model=AccessAccountRead)
 def revoke_access_account(account_email: str, request: Request) -> AccessAccountRead:
-    _require_admin(request)
+    current_user = _require_admin(request)
     try:
-        account = request.app.state.access_repository.revoke_account(account_email)
+        account = request.app.state.access_repository.revoke_account(
+            account_email,
+            actor_email=current_user.email,
+        )
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access account not found") from exc
     return AccessAccountRead.model_validate(account)
