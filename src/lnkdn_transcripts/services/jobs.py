@@ -49,7 +49,11 @@ class JobService:
             created_job.source_domain,
             created_job.status,
         )
-        return self.process_fetch(created_job.id)
+        return created_job
+
+    def process_job(self, job_id: str) -> None:
+        job = self.process_fetch(job_id)
+        logger.info("jobs.pipeline_complete id=%s status=%s", job.id, job.status)
 
     def get_job(self, job_id: str) -> TranscriptJob | None:
         job = self.repository.get_job(job_id)

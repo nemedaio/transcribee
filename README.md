@@ -57,7 +57,7 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 
 ## Current branch status
 
-`codex/exports-and-history` extends the persistent workflow:
+`codex/background-jobs` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -66,6 +66,7 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 - persist fetched artifact metadata, transcript output, segment timings, and processing errors
 - download completed transcripts as TXT, Markdown, SRT, and VTT
 - browse recent jobs from a dedicated history page
+- queue submitted jobs for background processing instead of blocking the request
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -117,6 +118,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - transcription failure persistence
 - transcript export endpoints
 - history page rendering
+- queued job submission and later completion through the background runner
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

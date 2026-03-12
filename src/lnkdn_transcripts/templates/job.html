@@ -89,5 +89,18 @@
         <p><a href="/">Create another job</a> · <a href="/history">Open history</a></p>
       </section>
     </main>
+    {% if job.status.value not in ["completed", "failed"] %}
+    <script>
+      const pollJob = async () => {
+        const response = await fetch("/api/jobs/{{ job.id }}");
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (payload.status === "completed" || payload.status === "failed") {
+          window.location.reload();
+        }
+      };
+      window.setInterval(pollJob, 2000);
+    </script>
+    {% endif %}
   </body>
 </html>

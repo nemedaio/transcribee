@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from lnkdn_transcripts.config import Settings
 from lnkdn_transcripts.main import create_app
+from lnkdn_transcripts.services.background_jobs import InlineJobRunner, ManualJobRunner
 from lnkdn_transcripts.services.fetcher import FetchedMedia, MediaFetchError
 from lnkdn_transcripts.services.transcriber import TranscriptSegment, TranscriptionError, TranscriptionResult
 from lnkdn_transcripts.storage.models import TranscriptJob
@@ -56,6 +57,7 @@ def client(tmp_path) -> Generator[TestClient, None, None]:
         settings,
         media_fetcher=FakeMediaFetcher(),
         media_transcriber=FakeTranscriber(),
+        job_runner_factory=lambda processor: InlineJobRunner(processor),
     )
 
     with TestClient(app) as test_client:
@@ -74,6 +76,7 @@ def fetch_failing_client(tmp_path) -> Generator[TestClient, None, None]:
         settings,
         media_fetcher=FakeMediaFetcher(should_fail=True),
         media_transcriber=FakeTranscriber(),
+        job_runner_factory=lambda processor: InlineJobRunner(processor),
     )
 
     with TestClient(app) as test_client:
@@ -92,6 +95,26 @@ def transcription_failing_client(tmp_path) -> Generator[TestClient, None, None]:
         settings,
         media_fetcher=FakeMediaFetcher(),
         media_transcriber=FakeTranscriber(should_fail=True),
+        job_runner_factory=lambda processor: InlineJobRunner(processor),
+    )
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def queued_client(tmp_path) -> Generator[TestClient, None, None]:
+    settings = Settings(
+        data_dir=str(tmp_path / "data"),
+        media_dir=str(tmp_path / "media"),
+        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        log_level="DEBUG",
+    )
+    app = create_app(
+        settings,
+        media_fetcher=FakeMediaFetcher(),
+        media_transcriber=FakeTranscriber(),
+        job_runner_factory=lambda processor: ManualJobRunner(processor),
     )
 
     with TestClient(app) as test_client:

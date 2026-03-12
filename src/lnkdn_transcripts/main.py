@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from collections.abc import Callable
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +9,7 @@ from lnkdn_transcripts.logging import configure_logging, get_logger
 from lnkdn_transcripts.routes.api import router as api_router
 from lnkdn_transcripts.routes.health import router as health_router
 from lnkdn_transcripts.routes.web import router as web_router
+from lnkdn_transcripts.services.background_jobs import JobRunner, ThreadedJobRunner
 from lnkdn_transcripts.services.exporters import TranscriptExporter
 from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
 from lnkdn_transcripts.services.transcriber import FasterWhisperTranscriber, MediaTranscriber
@@ -21,6 +23,7 @@ def create_app(
     app_settings: Settings | None = None,
     media_fetcher: MediaFetcher | None = None,
     media_transcriber: MediaTranscriber | None = None,
+    job_runner_factory: Callable[[Callable[[str], None]], JobRunner] | None = None,
 ) -> FastAPI:
     resolved_settings = app_settings or settings
     configure_logging(resolved_settings.log_level)
@@ -33,6 +36,7 @@ def create_app(
         create_db_and_tables(engine)
         logger.info("app.startup database_ready=%s", resolved_settings.database_url or resolved_settings.data_dir)
         yield
+        app.state.job_runner.close()
 
     app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
     app.state.settings = resolved_settings
@@ -44,6 +48,11 @@ def create_app(
         app.state.job_repository,
         resolved_media_fetcher,
         resolved_media_transcriber,
+    )
+    app.state.job_runner = (
+        job_runner_factory(app.state.job_service.process_job)
+        if job_runner_factory is not None
+        else ThreadedJobRunner(app.state.job_service.process_job)
     )
     app.include_router(health_router)
     app.include_router(api_router)

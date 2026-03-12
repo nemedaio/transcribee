@@ -15,13 +15,15 @@ def _job_service(request: Request):
     return request.app.state.job_service
 
 
-@router.post("/jobs", response_model=JobRead, status_code=status.HTTP_201_CREATED)
+@router.post("/jobs", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED)
 def create_job(payload: JobSubmission, request: Request) -> JobRead:
     try:
         job = _job_service(request).create_job(payload.video_url)
+        request.app.state.job_runner.enqueue(job.id)
     except InvalidVideoUrlError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return JobRead.model_validate(job)
+    current_job = _job_service(request).get_job(job.id)
+    return JobRead.model_validate(current_job)
 
 
 @router.get("/jobs", response_model=list[JobRead])

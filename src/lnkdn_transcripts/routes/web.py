@@ -42,6 +42,7 @@ def history(request: Request) -> HTMLResponse:
 def submit_job(request: Request, video_url: str = Form(...)) -> RedirectResponse:
     try:
         job = request.app.state.job_service.create_job(video_url)
+        request.app.state.job_runner.enqueue(job.id)
     except InvalidVideoUrlError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=status.HTTP_303_SEE_OTHER)

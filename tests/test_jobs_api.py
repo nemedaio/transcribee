@@ -7,7 +7,7 @@ def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
         json={"video_url": "https://www.linkedin.com/feed/update/urn:li:activity:1234567890/"},
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
     assert body["status"] == "completed"
     assert body["provider"] == "linkedin"
@@ -43,7 +43,7 @@ def test_list_jobs_returns_most_recent_first(client: TestClient) -> None:
 def test_fetch_failure_is_persisted(fetch_failing_client: TestClient) -> None:
     response = fetch_failing_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
     assert body["status"] == "failed"
     assert body["last_error"] == "download failed"
@@ -57,7 +57,7 @@ def test_fetch_failure_is_persisted(fetch_failing_client: TestClient) -> None:
 def test_transcription_failure_is_persisted(transcription_failing_client: TestClient) -> None:
     response = transcription_failing_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
     assert body["status"] == "failed"
     assert body["last_error"] == "transcription failed"
@@ -113,3 +113,17 @@ def test_export_rejects_incomplete_transcript(transcription_failing_client: Test
 
     assert response.status_code == 409
     assert response.json() == {"detail": "Transcript is not available for export yet"}
+
+
+def test_queued_job_can_be_completed_later(queued_client: TestClient) -> None:
+    response = queued_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    assert response.status_code == 202
+    queued_job = response.json()
+    assert queued_job["status"] == "queued"
+
+    queued_client.app.state.job_runner.run_all()
+
+    refreshed = queued_client.get(f"/api/jobs/{queued_job['id']}")
+    assert refreshed.status_code == 200
+    assert refreshed.json()["status"] == "completed"
