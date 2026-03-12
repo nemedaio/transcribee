@@ -57,7 +57,7 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 
 ## Current branch status
 
-`codex/provider-ingestion` extends the persistent workflow:
+`codex/dashboard-retries` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -68,6 +68,8 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 - browse recent jobs from a dedicated history page
 - queue submitted jobs for background processing instead of blocking the request
 - normalize LinkedIn URLs more aggressively and reject non-post/non-video LinkedIn pages with clearer errors
+- expose a dashboard with live status counts and dedicated active/failed/completed sections
+- retry failed jobs from the dashboard, history page, or job detail page
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -100,9 +102,13 @@ This is intentionally simple for local development and easy terminal debugging.
 ```text
 GET  /health
 GET  /
+GET  /dashboard
 POST /jobs
+POST /jobs/{job_id}/retry
 GET  /jobs/{job_id}
 POST /api/jobs
+GET  /api/dashboard
+POST /api/jobs/{job_id}/retry
 GET  /api/jobs/{job_id}
 GET  /api/jobs
 ```
@@ -121,6 +127,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - history page rendering
 - queued job submission and later completion through the background runner
 - LinkedIn-specific normalization and validation rules
+- dashboard status counts and retry flow
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

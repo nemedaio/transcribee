@@ -38,3 +38,23 @@ def test_history_page_renders_recent_jobs_and_export_links(client: TestClient) -
     assert "Transcript History" in response.text
     assert "TXT" in response.text
     assert "SRT" in response.text
+
+
+def test_dashboard_page_renders_counts_and_retry_controls(queued_client: TestClient) -> None:
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/completed"})
+    queued_client.app.state.job_runner.run_all()
+
+    queued_client.app.state.media_transcriber.should_fail = True
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/failed"})
+    queued_client.app.state.job_runner.run_all()
+
+    queued_client.app.state.media_transcriber.should_fail = False
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/queued"})
+
+    response = queued_client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "Job Dashboard" in response.text
+    assert "Retry job" in response.text
+    assert "Queued" in response.text
+    assert "Completed" in response.text

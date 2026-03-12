@@ -36,11 +36,15 @@
               <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
               <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
             </p>
+            {% elif job.status.value == "failed" %}
+            <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
+              <button type="submit">Retry job</button>
+            </form>
             {% endif %}
           </article>
           {% endfor %}
         </div>
-        <p><a href="/">Back to submit</a></p>
+        <p><a href="/">Back to submit</a> · <a href="/dashboard">Open dashboard</a></p>
       </section>
     </main>
   </body>

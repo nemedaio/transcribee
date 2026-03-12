@@ -35,6 +35,7 @@ class TranscriptJob(SQLModel, table=True):
     transcript_language: str | None = None
     transcript_segment_count: int | None = None
     transcript_segments_json: str | None = None
+    retry_count: int = 0
     last_error: str | None = None
     fetch_started_at: datetime | None = None
     fetch_completed_at: datetime | None = None
@@ -61,6 +62,7 @@ class JobRead(SQLModel):
     transcript_text: str | None
     transcript_language: str | None
     transcript_segment_count: int | None
+    retry_count: int
     last_error: str | None
     fetch_started_at: datetime | None
     fetch_completed_at: datetime | None
@@ -68,3 +70,12 @@ class JobRead(SQLModel):
     transcription_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class DashboardCounts(SQLModel):
+    queued: int
+    fetching: int
+    transcribing: int
+    completed: int
+    failed: int
+    total: int

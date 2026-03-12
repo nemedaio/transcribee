@@ -90,6 +90,20 @@ h1 {
   font-weight: 700;
 }
 
+.inline-form {
+  margin-top: 16px;
+}
+
+.inline-form button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: white;
+  padding: 0 14px;
+  font-weight: 700;
+}
+
 .status {
   margin: 16px 0 0;
   color: rgba(23, 32, 51, 0.75);
@@ -180,6 +194,12 @@ h1 {
   gap: 16px;
 }
 
+.dashboard-section + .dashboard-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
 .history-item {
   padding: 18px 0;
   border-bottom: 1px solid var(--border);
@@ -207,9 +227,46 @@ h1 {
   margin: 16px 0 0;
 }
 
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 24px rgba(23, 32, 51, 0.05);
+}
+
+.stat-card h2 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(23, 32, 51, 0.64);
+}
+
+.stat-card p {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.stat-card-danger {
+  border-color: rgba(156, 47, 47, 0.18);
+}
+
 @media (max-width: 640px) {
   .page-shell {
     padding: 48px 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .job-grid {

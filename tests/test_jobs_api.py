@@ -160,3 +160,60 @@ def test_linkedin_profile_url_is_rejected(client: TestClient) -> None:
     assert response.json() == {
         "detail": "LinkedIn ingestion currently supports post and video URLs, not profile or directory pages"
     }
+
+
+def test_dashboard_counts_reflect_queued_completed_and_failed_jobs(queued_client: TestClient) -> None:
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/completed"})
+    queued_client.app.state.job_runner.run_all()
+
+    queued_client.app.state.media_transcriber.should_fail = True
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/failed"})
+    queued_client.app.state.job_runner.run_all()
+
+    queued_client.app.state.media_transcriber.should_fail = False
+    queued_client.post("/api/jobs", json={"video_url": "https://example.com/queued"})
+
+    response = queued_client.get("/api/dashboard")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "queued": 1,
+        "fetching": 0,
+        "transcribing": 0,
+        "completed": 1,
+        "failed": 1,
+        "total": 3,
+    }
+
+
+def test_retry_failed_job_requeues_and_completes(queued_client: TestClient) -> None:
+    queued_client.app.state.media_transcriber.should_fail = True
+    created = queued_client.post("/api/jobs", json={"video_url": "https://example.com/retry"}).json()
+    queued_client.app.state.job_runner.run_all()
+
+    failed = queued_client.get(f"/api/jobs/{created['id']}").json()
+    assert failed["status"] == "failed"
+
+    queued_client.app.state.media_transcriber.should_fail = False
+    response = queued_client.post(f"/api/jobs/{created['id']}/retry")
+
+    assert response.status_code == 202
+    retried = response.json()
+    assert retried["status"] == "queued"
+    assert retried["retry_count"] == 1
+    assert retried["media_file_path"] is None
+    assert retried["transcript_text"] is None
+
+    queued_client.app.state.job_runner.run_all()
+    completed = queued_client.get(f"/api/jobs/{created['id']}").json()
+    assert completed["status"] == "completed"
+    assert completed["retry_count"] == 1
+
+
+def test_retry_non_failed_job_is_rejected(queued_client: TestClient) -> None:
+    created = queued_client.post("/api/jobs", json={"video_url": "https://example.com/queued"}).json()
+
+    response = queued_client.post(f"/api/jobs/{created['id']}/retry")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Only failed jobs can be retried"}

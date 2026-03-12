@@ -74,6 +74,11 @@
         {% if job.last_error %}
         <p class="status error-text">Last error: {{ job.last_error }}</p>
         {% endif %}
+        {% if job.status.value == "failed" %}
+        <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
+          <button type="submit">Retry job</button>
+        </form>
+        {% endif %}
         {% if job.status.value == "completed" %}
         <p class="export-links">
           <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
@@ -86,7 +91,7 @@
           <h2>Transcript</h2>
           <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
         </div>
-        <p><a href="/">Create another job</a> · <a href="/history">Open history</a></p>
+        <p><a href="/">Create another job</a> · <a href="/dashboard">Open dashboard</a> · <a href="/history">Open history</a></p>
       </section>
     </main>
     {% if job.status.value not in ["completed", "failed"] %}

@@ -3,7 +3,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from lnkdn_transcripts.services.exporters import IncompleteTranscriptError, UnsupportedExportFormatError
+from lnkdn_transcripts.services.jobs import InvalidRetryError
 from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
+from lnkdn_transcripts.storage.models import JobStatus
 
 templates = Jinja2Templates(directory="src/lnkdn_transcripts/templates")
 router = APIRouter(tags=["web"])
@@ -20,6 +22,30 @@ def index(request: Request) -> HTMLResponse:
             "page_title": request.app.state.settings.app_name,
             "status": "Submit a URL to fetch media locally and transcribe it with Whisper.",
             "recent_jobs": recent_jobs,
+        },
+    )
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request) -> HTMLResponse:
+    job_service = request.app.state.job_service
+    counts = job_service.dashboard_counts()
+    active_jobs = job_service.list_jobs_by_status(
+        statuses=[JobStatus.QUEUED, JobStatus.FETCHING, JobStatus.TRANSCRIBING],
+        limit=15,
+    )
+    failed_jobs = job_service.list_jobs_by_status(statuses=[JobStatus.FAILED], limit=15)
+    recent_completed_jobs = job_service.list_jobs_by_status(statuses=[JobStatus.COMPLETED], limit=10)
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "request": request,
+            "page_title": "Job Dashboard",
+            "counts": counts,
+            "active_jobs": active_jobs,
+            "failed_jobs": failed_jobs,
+            "recent_completed_jobs": recent_completed_jobs,
         },
     )
 
@@ -45,6 +71,18 @@ def submit_job(request: Request, video_url: str = Form(...)) -> RedirectResponse
         request.app.state.job_runner.enqueue(job.id)
     except InvalidVideoUrlError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return RedirectResponse(url=f"/jobs/{job.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/jobs/{job_id}/retry")
+def retry_job(request: Request, job_id: str) -> RedirectResponse:
+    try:
+        job = request.app.state.job_service.retry_job(job_id)
+        request.app.state.job_runner.enqueue(job.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found") from exc
+    except InvalidRetryError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 

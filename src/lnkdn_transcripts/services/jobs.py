@@ -4,10 +4,14 @@ from lnkdn_transcripts.services.provider_urls import (
 )
 from lnkdn_transcripts.services.transcriber import MediaTranscriber
 from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import TranscriptJob
+from lnkdn_transcripts.storage.models import DashboardCounts, JobStatus, TranscriptJob
 from lnkdn_transcripts.storage.repo import JobRepository
 
 logger = get_logger(__name__)
+
+
+class InvalidRetryError(ValueError):
+    """Raised when a job cannot be retried from its current state."""
 
 
 class JobService:
@@ -56,6 +60,26 @@ class JobService:
         jobs = self.repository.list_recent_jobs(limit=limit)
         logger.info("jobs.list count=%s", len(jobs))
         return jobs
+
+    def list_jobs_by_status(self, statuses: list[JobStatus], limit: int = 20) -> list[TranscriptJob]:
+        jobs = self.repository.list_jobs_by_status(statuses=statuses, limit=limit)
+        logger.info("jobs.list_by_status statuses=%s count=%s", ",".join(status.value for status in statuses), len(jobs))
+        return jobs
+
+    def dashboard_counts(self) -> DashboardCounts:
+        counts = self.repository.dashboard_counts()
+        logger.info("jobs.dashboard total=%s", counts.total)
+        return counts
+
+    def retry_job(self, job_id: str) -> TranscriptJob:
+        job = self.repository.get_job(job_id)
+        if job is None:
+            raise LookupError(f"Job {job_id} not found")
+        if job.status != JobStatus.FAILED:
+            raise InvalidRetryError("Only failed jobs can be retried")
+        retried_job = self.repository.reset_for_retry(job_id)
+        logger.info("jobs.retry id=%s retry_count=%s", retried_job.id, retried_job.retry_count)
+        return retried_job
 
     def process_fetch(self, job_id: str) -> TranscriptJob:
         job = self.repository.get_job(job_id)

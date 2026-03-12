@@ -2,14 +2,14 @@ from collections.abc import Generator
 import json
 from pathlib import Path
 
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine, select
 
 from lnkdn_transcripts.config import Settings
 from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.services.fetcher import FetchedMedia
 from lnkdn_transcripts.services.transcriber import TranscriptionResult
-from lnkdn_transcripts.storage.models import JobStatus, TranscriptJob, utc_now
+from lnkdn_transcripts.storage.models import DashboardCounts, JobStatus, TranscriptJob, utc_now
 
 logger = get_logger(__name__)
 
@@ -42,6 +42,7 @@ def _migrate_sqlite_transcript_job_table(engine) -> None:
         "transcript_language": "TEXT",
         "transcript_segment_count": "INTEGER",
         "transcript_segments_json": "TEXT",
+        "retry_count": "INTEGER DEFAULT 0",
         "transcription_started_at": "TIMESTAMP",
         "transcription_completed_at": "TIMESTAMP",
     }
@@ -79,6 +80,30 @@ class JobRepository:
             statement = select(TranscriptJob).order_by(TranscriptJob.created_at.desc()).limit(limit)
             return list(session.exec(statement))
 
+    def list_jobs_by_status(self, statuses: list[JobStatus], limit: int = 20) -> list[TranscriptJob]:
+        with Session(self.engine) as session:
+            statement = (
+                select(TranscriptJob)
+                .where(TranscriptJob.status.in_(statuses))
+                .order_by(TranscriptJob.updated_at.desc())
+                .limit(limit)
+            )
+            return list(session.exec(statement))
+
+    def dashboard_counts(self) -> DashboardCounts:
+        with Session(self.engine) as session:
+            statement = select(TranscriptJob.status, func.count()).group_by(TranscriptJob.status)
+            rows = list(session.exec(statement))
+            counts = {status.value: count for status, count in rows}
+            return DashboardCounts(
+                queued=counts.get(JobStatus.QUEUED.value, 0),
+                fetching=counts.get(JobStatus.FETCHING.value, 0),
+                transcribing=counts.get(JobStatus.TRANSCRIBING.value, 0),
+                completed=counts.get(JobStatus.COMPLETED.value, 0),
+                failed=counts.get(JobStatus.FAILED.value, 0),
+                total=sum(counts.values()),
+            )
+
     def mark_fetch_started(self, job_id: str) -> TranscriptJob:
         with Session(self.engine) as session:
             job = session.get(TranscriptJob, job_id)
@@ -86,6 +111,18 @@ class JobRepository:
                 raise LookupError(f"Job {job_id} not found")
             job.status = JobStatus.FETCHING
             job.last_error = None
+            job.media_title = None
+            job.media_file_path = None
+            job.media_duration_seconds = None
+            job.source_media_id = None
+            job.extractor_name = None
+            job.transcript_text = None
+            job.transcript_language = None
+            job.transcript_segment_count = None
+            job.transcript_segments_json = None
+            job.fetch_completed_at = None
+            job.transcription_started_at = None
+            job.transcription_completed_at = None
             job.fetch_started_at = utc_now()
             job.updated_at = utc_now()
             session.add(job)
@@ -120,6 +157,8 @@ class JobRepository:
             job.status = JobStatus.FAILED
             job.last_error = error_message
             job.fetch_completed_at = utc_now()
+            job.transcription_started_at = None
+            job.transcription_completed_at = None
             job.updated_at = utc_now()
             session.add(job)
             session.commit()
@@ -179,6 +218,33 @@ class JobRepository:
             job.transcript_segment_count = None
             job.transcript_segments_json = None
             job.transcription_completed_at = utc_now()
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def reset_for_retry(self, job_id: str) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.status = JobStatus.QUEUED
+            job.last_error = None
+            job.media_title = None
+            job.media_file_path = None
+            job.media_duration_seconds = None
+            job.source_media_id = None
+            job.extractor_name = None
+            job.transcript_text = None
+            job.transcript_language = None
+            job.transcript_segment_count = None
+            job.transcript_segments_json = None
+            job.fetch_started_at = None
+            job.fetch_completed_at = None
+            job.transcription_started_at = None
+            job.transcription_completed_at = None
+            job.retry_count += 1
             job.updated_at = utc_now()
             session.add(job)
             session.commit()
