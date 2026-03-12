@@ -8,16 +8,21 @@ from lnkdn_transcripts.logging import configure_logging, get_logger
 from lnkdn_transcripts.routes.api import router as api_router
 from lnkdn_transcripts.routes.health import router as health_router
 from lnkdn_transcripts.routes.web import router as web_router
+from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
 from lnkdn_transcripts.services.jobs import JobService
 from lnkdn_transcripts.storage.repo import JobRepository, create_db_and_tables, create_engine
 
 logger = get_logger(__name__)
 
 
-def create_app(app_settings: Settings | None = None) -> FastAPI:
+def create_app(
+    app_settings: Settings | None = None,
+    media_fetcher: MediaFetcher | None = None,
+) -> FastAPI:
     resolved_settings = app_settings or settings
     configure_logging(resolved_settings.log_level)
     engine = create_engine(resolved_settings)
+    resolved_media_fetcher = media_fetcher or YtDlpMediaFetcher(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -28,7 +33,8 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
     app.state.settings = resolved_settings
     app.state.job_repository = JobRepository(engine)
-    app.state.job_service = JobService(app.state.job_repository)
+    app.state.media_fetcher = resolved_media_fetcher
+    app.state.job_service = JobService(app.state.job_repository, resolved_media_fetcher)
     app.include_router(health_router)
     app.include_router(api_router)
     app.include_router(web_router)

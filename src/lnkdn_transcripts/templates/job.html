@@ -21,7 +21,7 @@
         <dl class="job-grid">
           <div>
             <dt>Status</dt>
-            <dd id="job-status">{{ job.status }}</dd>
+            <dd id="job-status">{{ job.status.value }}</dd>
           </div>
           <div>
             <dt>Provider</dt>
@@ -35,11 +35,37 @@
             <dt>Normalized URL</dt>
             <dd class="job-url">{{ job.normalized_url }}</dd>
           </div>
+          <div>
+            <dt>Title</dt>
+            <dd>{{ job.media_title or "Pending fetch metadata" }}</dd>
+          </div>
+          <div>
+            <dt>Local file</dt>
+            <dd class="job-url">{{ job.media_file_path or "Pending local download" }}</dd>
+          </div>
+          <div>
+            <dt>Duration</dt>
+            <dd>
+              {% if job.media_duration_seconds is not none %}
+              {{ job.media_duration_seconds }}s
+              {% else %}
+              Pending
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt>Fetcher</dt>
+            <dd>{{ job.extractor_name or "Pending" }}</dd>
+          </div>
         </dl>
         <p class="status">
-          Polling is ready through <code>/api/jobs/{{ job.id }}</code>. Current branch keeps jobs in
-          <strong>queued</strong> status until the fetcher and transcription workers are added.
+          Polling is ready through <code>/api/jobs/{{ job.id }}</code>. This branch performs an
+          immediate in-process media fetch and records either a local artifact path or a fetch
+          failure message.
         </p>
+        {% if job.last_error %}
+        <p class="status error-text">Last error: {{ job.last_error }}</p>
+        {% endif %}
         <p><a href="/">Create another job</a></p>
       </section>
     </main>

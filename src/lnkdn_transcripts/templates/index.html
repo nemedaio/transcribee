@@ -37,7 +37,7 @@
           <ul>
             {% for job in recent_jobs %}
             <li>
-              <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status }} · {{ job.source_domain }}</a>
+              <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status.value }} · {{ job.source_domain }}</a>
             </li>
             {% endfor %}
           </ul>

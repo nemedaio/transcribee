@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
+from lnkdn_transcripts.services.fetcher import MediaFetcher
 from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.storage.models import TranscriptJob
 from lnkdn_transcripts.storage.repo import JobRepository
@@ -21,8 +22,9 @@ class NormalizedVideoUrl:
 
 
 class JobService:
-    def __init__(self, repository: JobRepository) -> None:
+    def __init__(self, repository: JobRepository, media_fetcher: MediaFetcher) -> None:
         self.repository = repository
+        self.media_fetcher = media_fetcher
 
     def create_job(self, raw_url: str) -> TranscriptJob:
         normalized = self._normalize_url(raw_url)
@@ -40,7 +42,7 @@ class JobService:
             created_job.source_domain,
             created_job.status,
         )
-        return created_job
+        return self.process_fetch(created_job.id)
 
     def get_job(self, job_id: str) -> TranscriptJob | None:
         job = self.repository.get_job(job_id)
@@ -54,6 +56,31 @@ class JobService:
         jobs = self.repository.list_recent_jobs()
         logger.info("jobs.list count=%s", len(jobs))
         return jobs
+
+    def process_fetch(self, job_id: str) -> TranscriptJob:
+        job = self.repository.get_job(job_id)
+        if job is None:
+            raise LookupError(f"Job {job_id} not found")
+
+        job = self.repository.mark_fetch_started(job.id)
+        logger.info("jobs.fetch_start id=%s status=%s", job.id, job.status)
+
+        try:
+            fetched_media = self.media_fetcher.fetch(job)
+        except Exception as exc:
+            error_message = str(exc)
+            failed_job = self.repository.mark_fetch_failed(job.id, error_message)
+            logger.warning("jobs.fetch_failed id=%s error=%s", failed_job.id, failed_job.last_error)
+            return failed_job
+
+        fetched_job = self.repository.mark_fetch_succeeded(job.id, fetched_media)
+        logger.info(
+            "jobs.fetch_succeeded id=%s status=%s path=%s",
+            fetched_job.id,
+            fetched_job.status,
+            fetched_job.media_file_path,
+        )
+        return fetched_job
 
     def _normalize_url(self, raw_url: str) -> NormalizedVideoUrl:
         cleaned_url = raw_url.strip()

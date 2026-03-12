@@ -57,14 +57,23 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 
 ## Current branch status
 
-`codex/job-models` adds the first persistent workflow:
+`codex/media-fetcher` extends the first persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
+- fetch media locally with `yt-dlp`
+- persist fetched artifact metadata and fetch errors
 - fetch job status over JSON
 - show a basic job detail page in the browser
 
-Jobs are currently created in `queued` status. Media download and transcription land on the next branches.
+Jobs now move through fetch states immediately in-process:
+
+- `queued`
+- `fetching`
+- `fetched`
+- `failed`
+
+Transcription lands on the next branch.
 
 ## Logging
 
@@ -73,6 +82,8 @@ The app emits structured-enough application logs with timestamps, logger name, a
 - app startup
 - database initialization
 - job creation
+- fetch start and success
+- fetch failures
 - job lookup failures
 
 This is intentionally simple for local development and easy terminal debugging.
@@ -91,10 +102,12 @@ GET  /api/jobs
 
 ## Tests
 
-Current automated coverage focuses on the first backend contract:
+Current automated coverage focuses on the first backend contract plus media fetch behavior:
 
 - healthcheck
 - job creation through the JSON API
+- successful fetch processing with persisted metadata
+- fetch failure persistence
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

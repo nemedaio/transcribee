@@ -17,7 +17,7 @@ def index(request: Request) -> HTMLResponse:
         {
             "request": request,
             "page_title": request.app.state.settings.app_name,
-            "status": "Submit a URL to create a queued transcription job.",
+            "status": "Submit a URL to fetch media locally and prepare it for transcription.",
             "recent_jobs": recent_jobs,
         },
     )

@@ -12,7 +12,9 @@ def utc_now() -> datetime:
 
 class JobStatus(str, Enum):
     QUEUED = "queued"
-    PROCESSING = "processing"
+    FETCHING = "fetching"
+    FETCHED = "fetched"
+    TRANSCRIBING = "transcribing"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -24,8 +26,15 @@ class TranscriptJob(SQLModel, table=True):
     source_domain: str = Field(index=True)
     provider: str = Field(default="generic", index=True)
     status: JobStatus = Field(default=JobStatus.QUEUED, index=True)
+    media_title: str | None = None
+    media_file_path: str | None = None
+    media_duration_seconds: int | None = None
+    source_media_id: str | None = None
+    extractor_name: str | None = None
     transcript_text: str | None = None
     last_error: str | None = None
+    fetch_started_at: datetime | None = None
+    fetch_completed_at: datetime | None = None
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
@@ -39,6 +48,13 @@ class JobRead(SQLModel):
     source_domain: str
     provider: str
     status: JobStatus
+    media_title: str | None
+    media_file_path: str | None
+    media_duration_seconds: int | None
+    source_media_id: str | None
+    extractor_name: str | None
     last_error: str | None
+    fetch_started_at: datetime | None
+    fetch_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

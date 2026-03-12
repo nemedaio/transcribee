@@ -95,6 +95,10 @@ h1 {
   color: rgba(23, 32, 51, 0.75);
 }
 
+.error-text {
+  color: #9c2f2f;
+}
+
 .recent-jobs {
   margin-top: 24px;
   padding-top: 20px;

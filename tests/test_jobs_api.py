@@ -9,10 +9,16 @@ def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
 
     assert response.status_code == 201
     body = response.json()
-    assert body["status"] == "queued"
+    assert body["status"] == "fetched"
     assert body["provider"] == "linkedin"
     assert body["source_domain"] == "www.linkedin.com"
     assert body["normalized_url"].startswith("https://www.linkedin.com/")
+    assert body["media_title"] == "Test media title"
+    assert body["media_duration_seconds"] == 83
+    assert body["media_file_path"].startswith("/tmp/")
+    assert body["extractor_name"] == "fake"
+    assert body["fetch_started_at"] is not None
+    assert body["fetch_completed_at"] is not None
     assert body["id"]
 
 
@@ -27,6 +33,18 @@ def test_list_jobs_returns_most_recent_first(client: TestClient) -> None:
     assert len(body) == 2
     assert body[0]["id"] == second["id"]
     assert body[1]["id"] == first["id"]
+
+
+def test_fetch_failure_is_persisted(failing_client: TestClient) -> None:
+    response = failing_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["last_error"] == "download failed"
+    assert body["media_file_path"] is None
+    assert body["fetch_started_at"] is not None
+    assert body["fetch_completed_at"] is not None
 
 
 def test_get_missing_job_returns_404(client: TestClient) -> None:

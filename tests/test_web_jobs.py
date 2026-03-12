@@ -22,5 +22,7 @@ def test_job_page_renders_created_job(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert created["id"] in response.text
-    assert "queued" in response.text
+    assert "fetched" in response.text
     assert "https://example.com/watch?v=42" in response.text
+    assert "Test media title" in response.text
+    assert created["media_file_path"] in response.text
