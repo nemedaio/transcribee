@@ -99,6 +99,27 @@
 
   <div class="dashboard-section">
     <h2>Recent audit events</h2>
+    <form method="get" action="/auth/access" class="access-filter-form">
+      <label>
+        Account email
+        <input type="text" name="audit_account_email" value="{{ audit_account_email }}" placeholder="member@twyd.ai" />
+      </label>
+      <label>
+        Action
+        <select name="audit_action">
+          <option value="">All actions</option>
+          {% for option in audit_action_options %}
+          <option value="{{ option.value }}" {% if audit_action == option.value %}selected{% endif %}>{{ option.value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Search
+        <input type="text" name="audit_search" value="{{ audit_search }}" placeholder="actor, note, or email" />
+      </label>
+      <button type="submit">Filter audit</button>
+      <a class="button-link subtle-link compact-link" href="/api/access/audit/export.csv?account_email={{ audit_account_email|urlencode }}&action={{ audit_action|urlencode }}&search={{ audit_search|urlencode }}">Export CSV</a>
+    </form>
     {% if recent_audit_events %}
     <div class="history-list">
       {% for event in recent_audit_events %}

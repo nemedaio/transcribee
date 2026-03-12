@@ -7,7 +7,7 @@ from lnkdn_transcripts.services.auth import (
     GoogleAuthConfigurationError,
     UnauthorizedGoogleAccountError,
 )
-from lnkdn_transcripts.storage.models import AccessRole, AccessStatus
+from lnkdn_transcripts.storage.models import AccessAuditAction, AccessRole, AccessStatus
 from lnkdn_transcripts.templates import templates
 
 logger = get_logger(__name__)
@@ -133,7 +133,12 @@ def test_login(
 
 
 @router.get("/access", response_class=HTMLResponse)
-def access_admin(request: Request) -> HTMLResponse:
+def access_admin(
+    request: Request,
+    audit_account_email: str | None = Query(None),
+    audit_action: AccessAuditAction | None = Query(None),
+    audit_search: str | None = Query(None),
+) -> HTMLResponse:
     current_user = _require_admin(request)
     access_repository = request.app.state.access_repository
     return templates.TemplateResponse(
@@ -145,7 +150,16 @@ def access_admin(request: Request) -> HTMLResponse:
             "pending_accounts": access_repository.list_accounts([AccessStatus.PENDING]),
             "approved_accounts": access_repository.list_accounts([AccessStatus.APPROVED]),
             "revoked_accounts": access_repository.list_accounts([AccessStatus.REVOKED]),
-            "recent_audit_events": access_repository.list_audit_events(limit=25),
+            "recent_audit_events": access_repository.list_audit_events(
+                limit=25,
+                account_email=audit_account_email,
+                actions=[audit_action] if audit_action else None,
+                query=audit_search,
+            ),
+            "audit_action_options": list(AccessAuditAction),
+            "audit_account_email": audit_account_email or "",
+            "audit_action": audit_action.value if audit_action else "",
+            "audit_search": audit_search or "",
             "bootstrap_admin_emails": sorted(request.app.state.auth_service.admin_emails),
             "current_admin_email": current_user.email,
         },

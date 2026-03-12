@@ -1,10 +1,15 @@
+import csv
+from io import StringIO
+
 from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.services.jobs import InvalidRetryError
 from lnkdn_transcripts.storage.models import (
     AccessAccountRead,
+    AccessAuditAction,
     AccessAuditEventRead,
     AccessRole,
     AccessStatus,
@@ -98,10 +103,65 @@ def list_access_accounts(
 def list_access_audit_events(
     request: Request,
     account_email: str | None = Query(None),
+    actions: list[AccessAuditAction] | None = Query(None, alias="action"),
+    search: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
 ) -> list[AccessAuditEventRead]:
     _require_admin(request)
-    events = request.app.state.access_repository.list_audit_events(account_email=account_email)
+    events = request.app.state.access_repository.list_audit_events(
+        account_email=account_email,
+        actions=actions,
+        query=search,
+        limit=limit,
+    )
     return [AccessAuditEventRead.model_validate(event) for event in events]
+
+
+@router.get("/access/audit/export.csv")
+def export_access_audit_events(
+    request: Request,
+    account_email: str | None = Query(None),
+    actions: list[AccessAuditAction] | None = Query(None, alias="action"),
+    search: str | None = Query(None),
+    limit: int = Query(500, ge=1, le=1000),
+) -> Response:
+    _require_admin(request)
+    events = request.app.state.access_repository.list_audit_events(
+        account_email=account_email,
+        actions=actions,
+        query=search,
+        limit=limit,
+    )
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "created_at",
+            "account_email",
+            "action",
+            "actor_email",
+            "resulting_status",
+            "resulting_role",
+            "note",
+        ]
+    )
+    for event in events:
+        writer.writerow(
+            [
+                event.created_at.isoformat(),
+                event.account_email,
+                event.action.value,
+                event.actor_email or "",
+                event.resulting_status.value if event.resulting_status else "",
+                event.resulting_role.value if event.resulting_role else "",
+                event.note or "",
+            ]
+        )
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="access-audit.csv"'},
+    )
 
 
 @router.post("/access/accounts/{account_email}/approve", response_model=AccessAccountRead)

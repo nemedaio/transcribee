@@ -359,6 +359,45 @@ h1 {
   border-color: rgba(156, 47, 47, 0.18);
 }
 
+.access-filter-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.access-filter-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.access-filter-form input,
+.access-filter-form select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.access-filter-form button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: white;
+  padding: 0 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compact-link {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 @media (max-width: 640px) {
   .site-header {
     flex-direction: column;
@@ -380,6 +419,10 @@ h1 {
   }
 
   .job-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .access-filter-form {
     grid-template-columns: 1fr;
   }
 }

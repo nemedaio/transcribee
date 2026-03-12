@@ -95,7 +95,7 @@ With auth enabled:
 
 ## Current branch status
 
-`codex/access-audit-log` extends the persistent workflow:
+`codex/access-audit-exports` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -117,6 +117,7 @@ With auth enabled:
 - expose an admin-only access page for approval and revocation
 - expose admin-only JSON endpoints for listing, approving, and revoking access accounts
 - store an audit trail for access requests, grants, sign-ins, and revocations
+- support audit filtering/search in the admin UI and API, plus CSV export
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -179,6 +180,7 @@ GET  /api/jobs/{job_id}
 GET  /api/jobs
 GET  /api/access/accounts
 GET  /api/access/audit
+GET  /api/access/audit/export.csv
 POST /api/access/accounts/{account_email}/approve
 POST /api/access/accounts/{account_email}/revoke
 ```
@@ -204,6 +206,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - approval-required Google sign-in, admin approval, and revocation flow
 - admin-only access-management JSON API
 - access audit history in the admin UI and API
+- audit filtering/search and CSV export
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

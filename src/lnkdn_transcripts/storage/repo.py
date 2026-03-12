@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, or_, text
 from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine, select
 
 from lnkdn_transcripts.config import Settings
@@ -465,11 +465,25 @@ class AccessRepository:
         self,
         limit: int = 100,
         account_email: str | None = None,
+        actions: list[AccessAuditAction] | None = None,
+        query: str | None = None,
     ) -> list[AccessAuditEvent]:
         with Session(self.engine) as session:
-            statement = select(AccessAuditEvent).order_by(AccessAuditEvent.created_at.desc()).limit(limit)
+            statement = select(AccessAuditEvent)
             if account_email:
                 statement = statement.where(AccessAuditEvent.account_email == account_email.strip().lower())
+            if actions:
+                statement = statement.where(AccessAuditEvent.action.in_(actions))
+            if query:
+                normalized_query = f"%{query.strip().lower()}%"
+                statement = statement.where(
+                    or_(
+                        func.lower(AccessAuditEvent.account_email).like(normalized_query),
+                        func.lower(func.coalesce(AccessAuditEvent.actor_email, "")).like(normalized_query),
+                        func.lower(func.coalesce(AccessAuditEvent.note, "")).like(normalized_query),
+                    )
+                )
+            statement = statement.order_by(AccessAuditEvent.created_at.desc()).limit(limit)
             return list(session.exec(statement))
 
     def approve_account(

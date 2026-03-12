@@ -126,6 +126,20 @@ def test_access_admin_page_renders_recent_audit_events(approval_auth_client: Tes
     assert "member@twyd.ai" in response.text
 
 
+def test_access_admin_page_supports_audit_filters_and_export_link(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post("/auth/access/approve", data={"email": "member@twyd.ai", "role": "member"})
+    approval_auth_client.post("/auth/access/revoke", data={"email": "member@twyd.ai"}, follow_redirects=False)
+
+    response = approval_auth_client.get("/auth/access?audit_action=revoked&audit_search=owner")
+
+    assert response.status_code == 200
+    assert "Filter audit" in response.text
+    assert "Export CSV" in response.text
+    assert "Access revoked" in response.text
+
+
 def test_form_submission_redirects_to_job_page(client: TestClient) -> None:
     response = client.post(
         "/jobs",

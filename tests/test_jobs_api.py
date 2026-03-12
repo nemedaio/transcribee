@@ -105,6 +105,39 @@ def test_admin_can_list_access_audit_events_via_api(approval_auth_client: TestCl
     assert revoked_event["actor_email"] == "owner@twyd.ai"
 
 
+def test_admin_can_filter_access_audit_events_via_api(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+    approval_auth_client.post("/api/access/accounts/member@twyd.ai/revoke")
+
+    response = approval_auth_client.get("/api/access/audit?action=revoked&search=owner")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["action"] == "revoked"
+    assert response.json()[0]["actor_email"] == "owner@twyd.ai"
+
+
+def test_admin_can_export_access_audit_events_as_csv(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+
+    response = approval_auth_client.get("/api/access/audit/export.csv?action=granted")
+
+    assert response.status_code == 200
+    assert response.headers["content-disposition"].endswith('"access-audit.csv"')
+    assert "account_email,action,actor_email" in response.text
+    assert "member@twyd.ai,granted,owner@twyd.ai" in response.text
+
+
 def test_access_audit_api_requires_admin(approval_auth_client: TestClient) -> None:
     approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
     approval_auth_client.post(
