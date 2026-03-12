@@ -9,7 +9,9 @@ description = "Local-first URL to transcript web app"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  "authlib>=1.6.4,<2.0.0",
   "fastapi>=0.116.0,<1.0.0",
+  "itsdangerous>=2.2.0,<3.0.0",
   "uvicorn[standard]>=0.35.0,<1.0.0",
   "jinja2>=3.1.6,<4.0.0",
   "python-multipart>=0.0.20,<1.0.0",

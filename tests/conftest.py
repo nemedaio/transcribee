@@ -189,3 +189,56 @@ def audio_failing_client(tmp_path) -> Generator[TestClient, None, None]:
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def auth_client(tmp_path) -> Generator[TestClient, None, None]:
+    settings = Settings(
+        data_dir=str(tmp_path / "data"),
+        media_dir=str(tmp_path / "media"),
+        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        auth_enabled=True,
+        auth_test_mode=True,
+        session_secret_key="test-session-secret",
+        google_client_id="test-google-client-id",
+        google_client_secret="test-google-client-secret",
+        retain_source_media=False,
+        log_level="DEBUG",
+    )
+    app = create_app(
+        settings,
+        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
+        audio_preparer=FakeAudioPreparer(),
+        media_transcriber=FakeTranscriber(),
+        job_runner_factory=lambda processor: InlineJobRunner(processor),
+    )
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def restricted_auth_client(tmp_path) -> Generator[TestClient, None, None]:
+    settings = Settings(
+        data_dir=str(tmp_path / "data"),
+        media_dir=str(tmp_path / "media"),
+        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        auth_enabled=True,
+        auth_test_mode=True,
+        session_secret_key="test-session-secret",
+        google_client_id="test-google-client-id",
+        google_client_secret="test-google-client-secret",
+        google_allowed_email_domains="twyd.ai",
+        retain_source_media=False,
+        log_level="DEBUG",
+    )
+    app = create_app(
+        settings,
+        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
+        audio_preparer=FakeAudioPreparer(),
+        media_transcriber=FakeTranscriber(),
+        job_runner_factory=lambda processor: InlineJobRunner(processor),
+    )
+
+    with TestClient(app) as test_client:
+        yield test_client

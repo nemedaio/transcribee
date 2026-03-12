@@ -55,9 +55,42 @@ uvicorn lnkdn_transcripts.main:app --reload
 
 The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. The current branch was verified with Python 3.12 on macOS.
 
+### Google auth setup
+
+Google account auth is optional and disabled by default. When enabled, the web app and JSON API require a signed-in Google session.
+
+Set these environment variables before starting the app:
+
+```bash
+AUTH_ENABLED=true
+SESSION_SECRET_KEY=replace-this-with-a-long-random-string
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+```
+
+Optional hardening:
+
+```bash
+GOOGLE_ALLOWED_EMAIL_DOMAINS=twyd.ai
+SESSION_HTTPS_ONLY=true
+```
+
+Configure the Google OAuth redirect URI as:
+
+```text
+http://localhost:8000/auth/callback
+```
+
+With auth enabled:
+
+- browser requests redirect to `/auth/login`
+- API requests return `401 {"detail": "Authentication required"}`
+- signed-in users can log out from the top navigation
+- access can be limited to one or more Google Workspace domains
+
 ## Current branch status
 
-`codex/audio-extraction-cleanup` extends the persistent workflow:
+`codex/google-auth` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -73,6 +106,8 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 - retry failed jobs from the dashboard, history page, or job detail page
 - clean up raw downloaded media after audio extraction when configured
 - run retention cleanup for old finished-job artifacts from the dashboard or API
+- protect the app and API behind optional Google account sign-in
+- support optional allowed-domain checks for Google Workspace accounts
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -100,10 +135,21 @@ The app emits structured-enough application logs with timestamps, logger name, a
 
 This is intentionally simple for local development and easy terminal debugging.
 
+Additional auth events are logged for:
+
+- unauthenticated route access
+- Google login start and success
+- rejected Google accounts
+- logout and test-mode login
+
 ## API snapshot
 
 ```text
 GET  /health
+GET  /auth/login
+GET  /auth/google
+GET  /auth/callback
+GET  /auth/logout
 GET  /
 GET  /dashboard
 POST /jobs
@@ -134,6 +180,8 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - LinkedIn-specific normalization and validation rules
 - dashboard status counts and retry flow
 - ffmpeg-style audio preparation and artifact cleanup
+- Google-auth protected web and API access
+- Google test-mode login, logout, and allowed-domain rejection
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

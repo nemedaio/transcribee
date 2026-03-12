@@ -1,6 +1,50 @@
 from fastapi.testclient import TestClient
 
 
+def test_login_page_renders_google_sign_in(auth_client: TestClient) -> None:
+    response = auth_client.get("/auth/login")
+
+    assert response.status_code == 200
+    assert "Continue with Google" in response.text
+
+
+def test_protected_web_route_redirects_to_login_when_auth_is_enabled(auth_client: TestClient) -> None:
+    response = auth_client.get("/", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/auth/login?next=%2F"
+
+
+def test_google_test_login_creates_session_for_dashboard(auth_client: TestClient) -> None:
+    response = auth_client.get(
+        "/auth/test-login?email=owner@twyd.ai&next=/dashboard",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert "owner@twyd.ai" in response.text
+    assert "Job Dashboard" in response.text
+
+
+def test_logout_clears_google_auth_session(auth_client: TestClient) -> None:
+    auth_client.get("/auth/test-login?email=owner@twyd.ai&next=/dashboard", follow_redirects=True)
+
+    logout_response = auth_client.get("/auth/logout", follow_redirects=False)
+    redirected = auth_client.get("/dashboard", follow_redirects=False)
+
+    assert logout_response.status_code == 303
+    assert logout_response.headers["location"] == "/auth/login"
+    assert redirected.status_code == 303
+    assert redirected.headers["location"] == "/auth/login?next=%2Fdashboard"
+
+
+def test_restricted_google_domain_is_rejected(restricted_auth_client: TestClient) -> None:
+    response = restricted_auth_client.get("/auth/test-login?email=owner@example.com", follow_redirects=False)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Only Google accounts from twyd.ai can sign in"}
+
+
 def test_form_submission_redirects_to_job_page(client: TestClient) -> None:
     response = client.post(
         "/jobs",

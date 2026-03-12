@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand-mark" href="/">{{ app_name }}</a>
+      <nav class="site-nav">
+        {% if auth_enabled and current_user %}
+        <span class="user-chip">{{ current_user.email }}</span>
+        {% endif %}
+        {% if not auth_enabled or current_user %}
+        <a href="/">Submit</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/history">History</a>
+        {% endif %}
+        {% if auth_enabled %}
+          {% if current_user %}
+          <a href="/auth/logout">Sign out</a>
+          {% else %}
+          <a href="/auth/login">Sign in</a>
+          {% endif %}
+        {% endif %}
+      </nav>
+    </header>
+    <main class="page-shell">
+      {% block body %}{% endblock %}
+    </main>
+  </body>
+</html>

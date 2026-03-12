@@ -1,115 +1,105 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <main class="page-shell">
-      <section class="hero">
-        <p class="eyebrow">Transcription job</p>
-        <h1>Job {{ job.id }}</h1>
-        <p class="lede">
-          This branch fetches media locally and transcribes it immediately in-process so the job
-          page shows the first end-to-end transcript result.
-        </p>
-      </section>
+{% extends "base.html" %}
 
-      <section class="card job-card" data-job-id="{{ job.id }}">
-        <dl class="job-grid">
-          <div>
-            <dt>Status</dt>
-            <dd id="job-status">{{ job.status.value }}</dd>
-          </div>
-          <div>
-            <dt>Provider</dt>
-            <dd>{{ job.provider }}</dd>
-          </div>
-          <div>
-            <dt>Domain</dt>
-            <dd>{{ job.source_domain }}</dd>
-          </div>
-          <div>
-            <dt>Normalized URL</dt>
-            <dd class="job-url">{{ job.normalized_url }}</dd>
-          </div>
-          <div>
-            <dt>Title</dt>
-            <dd>{{ job.media_title or "Pending fetch metadata" }}</dd>
-          </div>
-          <div>
-            <dt>Source media</dt>
-            <dd class="job-url">{{ job.source_media_path or "Not retained" }}</dd>
-          </div>
-          <div>
-            <dt>Audio file</dt>
-            <dd class="job-url">{{ job.media_file_path or "Pending extracted audio" }}</dd>
-          </div>
-          <div>
-            <dt>Duration</dt>
-            <dd>
-              {% if job.media_duration_seconds is not none %}
-              {{ job.media_duration_seconds }}s
-              {% else %}
-              Pending
-              {% endif %}
-            </dd>
-          </div>
-          <div>
-            <dt>Fetcher</dt>
-            <dd>{{ job.extractor_name or "Pending" }}</dd>
-          </div>
-          <div>
-            <dt>Language</dt>
-            <dd>{{ job.transcript_language or "Pending" }}</dd>
-          </div>
-          <div>
-            <dt>Segments</dt>
-            <dd>{{ job.transcript_segment_count or "Pending" }}</dd>
-          </div>
-        </dl>
-        <p class="status">
-          Polling is ready through <code>/api/jobs/{{ job.id }}</code>. This branch performs an
-          immediate in-process media fetch followed by local transcription and records either a
-          completed transcript or a processing error.
-        </p>
-        {% if job.last_error %}
-        <p class="status error-text">Last error: {{ job.last_error }}</p>
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Transcription job</p>
+  <h1>Job {{ job.id }}</h1>
+  <p class="lede">
+    This branch fetches media locally and transcribes it immediately in-process so the job page
+    shows the first end-to-end transcript result.
+  </p>
+</section>
+
+<section class="card job-card" data-job-id="{{ job.id }}">
+  <dl class="job-grid">
+    <div>
+      <dt>Status</dt>
+      <dd id="job-status">{{ job.status.value }}</dd>
+    </div>
+    <div>
+      <dt>Provider</dt>
+      <dd>{{ job.provider }}</dd>
+    </div>
+    <div>
+      <dt>Domain</dt>
+      <dd>{{ job.source_domain }}</dd>
+    </div>
+    <div>
+      <dt>Normalized URL</dt>
+      <dd class="job-url">{{ job.normalized_url }}</dd>
+    </div>
+    <div>
+      <dt>Title</dt>
+      <dd>{{ job.media_title or "Pending fetch metadata" }}</dd>
+    </div>
+    <div>
+      <dt>Source media</dt>
+      <dd class="job-url">{{ job.source_media_path or "Not retained" }}</dd>
+    </div>
+    <div>
+      <dt>Audio file</dt>
+      <dd class="job-url">{{ job.media_file_path or "Pending extracted audio" }}</dd>
+    </div>
+    <div>
+      <dt>Duration</dt>
+      <dd>
+        {% if job.media_duration_seconds is not none %}
+        {{ job.media_duration_seconds }}s
+        {% else %}
+        Pending
         {% endif %}
-        {% if job.status.value == "failed" %}
-        <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
-          <button type="submit">Retry job</button>
-        </form>
-        {% endif %}
-        {% if job.status.value == "completed" %}
-        <p class="export-links">
-          <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
-          <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
-          <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
-          <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
-        </p>
-        {% endif %}
-        <div class="transcript-block">
-          <h2>Transcript</h2>
-          <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
-        </div>
-        <p><a href="/">Create another job</a> · <a href="/dashboard">Open dashboard</a> · <a href="/history">Open history</a></p>
-      </section>
-    </main>
-    {% if job.status.value not in ["completed", "failed"] %}
-    <script>
-      const pollJob = async () => {
-        const response = await fetch("/api/jobs/{{ job.id }}");
-        if (!response.ok) return;
-        const payload = await response.json();
-        if (payload.status === "completed" || payload.status === "failed") {
-          window.location.reload();
-        }
-      };
-      window.setInterval(pollJob, 2000);
-    </script>
-    {% endif %}
-  </body>
-</html>
+      </dd>
+    </div>
+    <div>
+      <dt>Fetcher</dt>
+      <dd>{{ job.extractor_name or "Pending" }}</dd>
+    </div>
+    <div>
+      <dt>Language</dt>
+      <dd>{{ job.transcript_language or "Pending" }}</dd>
+    </div>
+    <div>
+      <dt>Segments</dt>
+      <dd>{{ job.transcript_segment_count or "Pending" }}</dd>
+    </div>
+  </dl>
+  <p class="status">
+    Polling is ready through <code>/api/jobs/{{ job.id }}</code>. This branch performs an immediate
+    in-process media fetch followed by local transcription and records either a completed
+    transcript or a processing error.
+  </p>
+  {% if job.last_error %}
+  <p class="status error-text">Last error: {{ job.last_error }}</p>
+  {% endif %}
+  {% if job.status.value == "failed" %}
+  <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
+    <button type="submit">Retry job</button>
+  </form>
+  {% endif %}
+  {% if job.status.value == "completed" %}
+  <p class="export-links">
+    <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
+    <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
+    <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
+    <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
+  </p>
+  {% endif %}
+  <div class="transcript-block">
+    <h2>Transcript</h2>
+    <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
+  </div>
+</section>
+{% if job.status.value not in ["completed", "failed"] %}
+<script>
+  const pollJob = async () => {
+    const response = await fetch("/api/jobs/{{ job.id }}");
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (payload.status === "completed" || payload.status === "failed") {
+      window.location.reload();
+    }
+  };
+  window.setInterval(pollJob, 2000);
+</script>
+{% endif %}
+{% endblock %}

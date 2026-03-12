@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Authentication</p>
+  <h1>{{ page_title }}</h1>
+  <p class="lede">
+    Sign in with Google to access the transcript dashboard, job history, and API endpoints for
+    this workspace.
+  </p>
+</section>
+
+<section class="card auth-card">
+  {% if error_message %}
+  <p class="status error-text">{{ error_message }}</p>
+  {% endif %}
+
+  {% if allowed_email_domains %}
+  <p class="status">
+    Allowed Google account domains: {{ allowed_email_domains|join(", ") }}
+  </p>
+  {% else %}
+  <p class="status">Any verified Google account can sign in.</p>
+  {% endif %}
+
+  <a class="button-link" href="/auth/google?next={{ next_url|urlencode }}">Continue with Google</a>
+  <p class="status">
+    After sign-in, we’ll return you to <code>{{ next_url }}</code>.
+  </p>
+</section>
+{% endblock %}

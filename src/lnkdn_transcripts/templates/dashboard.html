@@ -1,120 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <main class="page-shell">
-      <section class="hero">
-        <p class="eyebrow">Operations</p>
-        <h1>{{ page_title }}</h1>
-        <p class="lede">
-          Track queued and in-flight work, review failures that need attention, and keep an eye on
-          recently completed transcripts.
-        </p>
-      </section>
+{% extends "base.html" %}
 
-      <section class="stats-grid">
-        <article class="stat-card">
-          <h2>Total</h2>
-          <p>{{ counts.total }}</p>
-        </article>
-        <article class="stat-card">
-          <h2>Queued</h2>
-          <p>{{ counts.queued }}</p>
-        </article>
-        <article class="stat-card">
-          <h2>Fetching</h2>
-          <p>{{ counts.fetching }}</p>
-        </article>
-        <article class="stat-card">
-          <h2>Transcribing</h2>
-          <p>{{ counts.transcribing }}</p>
-        </article>
-        <article class="stat-card">
-          <h2>Completed</h2>
-          <p>{{ counts.completed }}</p>
-        </article>
-        <article class="stat-card stat-card-danger">
-          <h2>Failed</h2>
-          <p>{{ counts.failed }}</p>
-        </article>
-      </section>
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Operations</p>
+  <h1>{{ page_title }}</h1>
+  <p class="lede">
+    Track queued and in-flight work, review failures that need attention, and keep an eye on
+    recently completed transcripts.
+  </p>
+</section>
 
-      <section class="card">
-        <div class="dashboard-toolbar">
-          <p class="status">Artifact retention target: {{ retention_days }} day(s)</p>
-          <form method="post" action="/dashboard/cleanup" class="inline-form compact-form">
-            <button type="submit">Run cleanup</button>
-          </form>
-        </div>
+<section class="stats-grid">
+  <article class="stat-card">
+    <h2>Total</h2>
+    <p>{{ counts.total }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>Queued</h2>
+    <p>{{ counts.queued }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>Fetching</h2>
+    <p>{{ counts.fetching }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>Transcribing</h2>
+    <p>{{ counts.transcribing }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>Completed</h2>
+    <p>{{ counts.completed }}</p>
+  </article>
+  <article class="stat-card stat-card-danger">
+    <h2>Failed</h2>
+    <p>{{ counts.failed }}</p>
+  </article>
+</section>
 
-        <div class="dashboard-section">
-          <h2>Active jobs</h2>
-          {% if active_jobs %}
-          <div class="history-list">
-            {% for job in active_jobs %}
-            <article class="history-item">
-              <header class="history-header">
-                <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
-                <p>{{ job.status.value }} · {{ job.provider }} · {{ job.source_domain }}</p>
-              </header>
-            </article>
-            {% endfor %}
-          </div>
-          {% else %}
-          <p class="status">No active jobs right now.</p>
-          {% endif %}
-        </div>
+<section class="card">
+  <div class="dashboard-toolbar">
+    <p class="status">Artifact retention target: {{ retention_days }} day(s)</p>
+    <form method="post" action="/dashboard/cleanup" class="inline-form compact-form">
+      <button type="submit">Run cleanup</button>
+    </form>
+  </div>
 
-        <div class="dashboard-section">
-          <h2>Failed jobs</h2>
-          {% if failed_jobs %}
-          <div class="history-list">
-            {% for job in failed_jobs %}
-            <article class="history-item">
-              <header class="history-header">
-                <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
-                <p>{{ job.status.value }} · retries {{ job.retry_count }}</p>
-              </header>
-              <p class="status error-text">{{ job.last_error }}</p>
-              <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
-                <button type="submit">Retry job</button>
-              </form>
-            </article>
-            {% endfor %}
-          </div>
-          {% else %}
-          <p class="status">No failed jobs right now.</p>
-          {% endif %}
-        </div>
+  <div class="dashboard-section">
+    <h2>Active jobs</h2>
+    {% if active_jobs %}
+    <div class="history-list">
+      {% for job in active_jobs %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
+          <p>{{ job.status.value }} · {{ job.provider }} · {{ job.source_domain }}</p>
+        </header>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No active jobs right now.</p>
+    {% endif %}
+  </div>
 
-        <div class="dashboard-section">
-          <h2>Recently completed</h2>
-          {% if recent_completed_jobs %}
-          <div class="history-list">
-            {% for job in recent_completed_jobs %}
-            <article class="history-item">
-              <header class="history-header">
-                <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
-                <p>{{ job.transcript_language or "unknown" }} · segments {{ job.transcript_segment_count or 0 }}</p>
-              </header>
-              {% if job.transcript_text %}
-              <p class="history-snippet">{{ job.transcript_text[:180] }}{% if job.transcript_text|length > 180 %}...{% endif %}</p>
-              {% endif %}
-            </article>
-            {% endfor %}
-          </div>
-          {% else %}
-          <p class="status">No completed jobs yet.</p>
-          {% endif %}
-        </div>
+  <div class="dashboard-section">
+    <h2>Failed jobs</h2>
+    {% if failed_jobs %}
+    <div class="history-list">
+      {% for job in failed_jobs %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
+          <p>{{ job.status.value }} · retries {{ job.retry_count }}</p>
+        </header>
+        <p class="status error-text">{{ job.last_error }}</p>
+        <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
+          <button type="submit">Retry job</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No failed jobs right now.</p>
+    {% endif %}
+  </div>
 
-        <p><a href="/">Back to submit</a> · <a href="/history">Open history</a></p>
-      </section>
-    </main>
-  </body>
-</html>
+  <div class="dashboard-section">
+    <h2>Recently completed</h2>
+    {% if recent_completed_jobs %}
+    <div class="history-list">
+      {% for job in recent_completed_jobs %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2><a href="/jobs/{{ job.id }}">{{ job.media_title or job.id }}</a></h2>
+          <p>{{ job.transcript_language or "unknown" }} · segments {{ job.transcript_segment_count or 0 }}</p>
+        </header>
+        {% if job.transcript_text %}
+        <p class="history-snippet">{{ job.transcript_text[:180] }}{% if job.transcript_text|length > 180 %}...{% endif %}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No completed jobs yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     media_dir: str | None = None
     database_url: str | None = None
+    auth_enabled: bool = False
+    auth_test_mode: bool = False
+    session_secret_key: str | None = None
+    session_cookie_name: str = "lnkdn_transcripts_session"
+    session_https_only: bool = False
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_allowed_email_domains: str | None = None
     extracted_audio_format: str = "wav"
     extracted_audio_sample_rate: int = 16000
     extracted_audio_channels: int = 1

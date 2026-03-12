@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from lnkdn_transcripts.services.exporters import IncompleteTranscriptError, UnsupportedExportFormatError
 from lnkdn_transcripts.services.jobs import InvalidRetryError
 from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
 from lnkdn_transcripts.storage.models import JobStatus
+from lnkdn_transcripts.templates import templates
 
-templates = Jinja2Templates(directory="src/lnkdn_transcripts/templates")
 router = APIRouter(tags=["web"])
 
 

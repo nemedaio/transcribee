@@ -1,53 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <main class="page-shell">
-      <section class="hero">
-        <p class="eyebrow">Local-first transcript pipeline</p>
-        <h1>{{ page_title }}</h1>
-        <p class="lede">
-          Paste one video URL, download audio locally, transcribe with a Whisper-style model,
-          and return the transcript through a minimal web UI.
-        </p>
-      </section>
+{% extends "base.html" %}
 
-      <section class="card">
-        <form class="url-form" method="post" action="/jobs">
-          <label for="video-url">Video URL</label>
-          <input
-            id="video-url"
-            name="video_url"
-            type="url"
-            placeholder="https://www.linkedin.com/..."
-            required
-          />
-          <button type="submit">Create transcript job</button>
-        </form>
-        <p class="status">{{ status }}</p>
-        <p class="status"><a href="/dashboard">Open dashboard</a> · <a href="/history">Browse full history</a></p>
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Local-first transcript pipeline</p>
+  <h1>{{ page_title }}</h1>
+  <p class="lede">
+    Paste one video URL, download audio locally, transcribe with a Whisper-style model, and
+    return the transcript through a minimal web UI.
+  </p>
+</section>
 
-        {% if recent_jobs %}
-        <div class="recent-jobs">
-          <h2>Recent jobs</h2>
-          <ul>
-            {% for job in recent_jobs %}
-            <li>
-              <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status.value }} · {{ job.source_domain }}</a>
-              {% if job.transcript_text %}
-              <p class="history-snippet">{{ job.transcript_text[:120] }}{% if job.transcript_text|length > 120 %}...{% endif %}</p>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-        </div>
+<section class="card">
+  <form class="url-form" method="post" action="/jobs">
+    <label for="video-url">Video URL</label>
+    <input
+      id="video-url"
+      name="video_url"
+      type="url"
+      placeholder="https://www.linkedin.com/..."
+      required
+    />
+    <button type="submit">Create transcript job</button>
+  </form>
+  <p class="status">{{ status }}</p>
+  <p class="status"><a href="/dashboard">Open dashboard</a> · <a href="/history">Browse full history</a></p>
+
+  {% if recent_jobs %}
+  <div class="recent-jobs">
+    <h2>Recent jobs</h2>
+    <ul>
+      {% for job in recent_jobs %}
+      <li>
+        <a href="/jobs/{{ job.id }}">{{ job.provider }} · {{ job.status.value }} · {{ job.source_domain }}</a>
+        {% if job.transcript_text %}
+        <p class="history-snippet">{{ job.transcript_text[:120] }}{% if job.transcript_text|length > 120 %}...{% endif %}</p>
         {% endif %}
-      </section>
-    </main>
-  </body>
-</html>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

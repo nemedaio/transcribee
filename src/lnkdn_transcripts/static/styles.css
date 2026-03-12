@@ -20,6 +20,45 @@ body {
   color: var(--ink);
 }
 
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 24px 0;
+}
+
+.brand-mark {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.site-nav a {
+  color: var(--accent-dark);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.user-chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(10, 102, 194, 0.1);
+  color: var(--accent-dark);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 .page-shell {
   min-height: 100vh;
   max-width: 960px;
@@ -88,6 +127,7 @@ h1 {
   background: var(--accent);
   color: white;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .inline-form {
@@ -106,6 +146,25 @@ h1 {
   color: white;
   padding: 0 14px;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.auth-card {
+  display: grid;
+  gap: 8px;
 }
 
 .status {
@@ -273,6 +332,12 @@ h1 {
 }
 
 @media (max-width: 640px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px 16px 0;
+  }
+
   .page-shell {
     padding: 48px 16px;
   }

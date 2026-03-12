@@ -1,6 +1,22 @@
 from fastapi.testclient import TestClient
 
 
+def test_api_requires_authentication_when_google_auth_is_enabled(auth_client: TestClient) -> None:
+    response = auth_client.get("/api/jobs")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Authentication required"}
+
+
+def test_api_accepts_authenticated_requests_when_google_auth_is_enabled(auth_client: TestClient) -> None:
+    auth_client.get("/auth/test-login?email=owner@twyd.ai&next=/api/jobs")
+
+    response = auth_client.post("/api/jobs", json={"video_url": "https://example.com/video/1"})
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
+
+
 def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
     response = client.post(
         "/api/jobs",
