@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from lnkdn_transcripts.services.transcriber import TranscriptionResult
 from lnkdn_transcripts.storage.models import (
     AccessAccount,
     AccessAuditAction,
+    AccessAuditCleanupSummary,
     AccessAuditEvent,
     AccessRole,
     AccessStatus,
@@ -485,6 +486,20 @@ class AccessRepository:
                 )
             statement = statement.order_by(AccessAuditEvent.created_at.desc()).limit(limit)
             return list(session.exec(statement))
+
+    def cleanup_audit_events(self, retention_days: int) -> AccessAuditCleanupSummary:
+        cutoff = utc_now() - timedelta(days=retention_days)
+        with Session(self.engine) as session:
+            statement = select(AccessAuditEvent).where(AccessAuditEvent.created_at < cutoff)
+            events = list(session.exec(statement))
+            for event in events:
+                session.delete(event)
+            session.commit()
+            return AccessAuditCleanupSummary(
+                events_deleted=len(events),
+                retention_days=retention_days,
+                deleted_before=cutoff,
+            )
 
     def approve_account(
         self,

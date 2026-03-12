@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     google_allowed_emails: str | None = None
     google_admin_emails: str | None = None
     google_require_approval: bool = False
+    access_audit_retention_days: int = 90
     extracted_audio_format: str = "wav"
     extracted_audio_sample_rate: int = 16000
     extracted_audio_channels: int = 1

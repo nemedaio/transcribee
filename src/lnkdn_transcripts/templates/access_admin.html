@@ -99,6 +99,12 @@
 
   <div class="dashboard-section">
     <h2>Recent audit events</h2>
+    <div class="dashboard-toolbar">
+      <p class="status">Audit retention target: {{ audit_retention_days }} day(s)</p>
+      <form method="post" action="/auth/access/audit/cleanup" class="inline-form compact-form">
+        <button type="submit">Run audit cleanup</button>
+      </form>
+    </div>
     <form method="get" action="/auth/access" class="access-filter-form">
       <label>
         Account email

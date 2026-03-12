@@ -75,6 +75,7 @@ GOOGLE_ALLOWED_EMAIL_DOMAINS=twyd.ai
 GOOGLE_ALLOWED_EMAILS=member@twyd.ai,ops@twyd.ai
 GOOGLE_ADMIN_EMAILS=owner@twyd.ai
 GOOGLE_REQUIRE_APPROVAL=true
+ACCESS_AUDIT_RETENTION_DAYS=90
 SESSION_HTTPS_ONLY=true
 ```
 
@@ -95,7 +96,7 @@ With auth enabled:
 
 ## Current branch status
 
-`codex/access-audit-exports` extends the persistent workflow:
+`codex/access-audit-retention` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -118,6 +119,7 @@ With auth enabled:
 - expose admin-only JSON endpoints for listing, approving, and revoking access accounts
 - store an audit trail for access requests, grants, sign-ins, and revocations
 - support audit filtering/search in the admin UI and API, plus CSV export
+- support retention-based cleanup for old audit events from the admin UI and API
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -181,6 +183,7 @@ GET  /api/jobs
 GET  /api/access/accounts
 GET  /api/access/audit
 GET  /api/access/audit/export.csv
+POST /api/access/audit/cleanup
 POST /api/access/accounts/{account_email}/approve
 POST /api/access/accounts/{account_email}/revoke
 ```
@@ -207,6 +210,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - admin-only access-management JSON API
 - access audit history in the admin UI and API
 - audit filtering/search and CSV export
+- audit retention cleanup
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

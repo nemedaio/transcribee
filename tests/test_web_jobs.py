@@ -140,6 +140,16 @@ def test_access_admin_page_supports_audit_filters_and_export_link(approval_auth_
     assert "Access revoked" in response.text
 
 
+def test_access_admin_page_renders_audit_cleanup_control(audit_cleanup_client: TestClient) -> None:
+    audit_cleanup_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+
+    response = audit_cleanup_client.get("/auth/access")
+
+    assert response.status_code == 200
+    assert "Run audit cleanup" in response.text
+    assert "Audit retention target: 0 day(s)" in response.text
+
+
 def test_form_submission_redirects_to_job_page(client: TestClient) -> None:
     response = client.post(
         "/jobs",

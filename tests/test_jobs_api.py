@@ -153,6 +153,24 @@ def test_access_audit_api_requires_admin(approval_auth_client: TestClient) -> No
     assert response.json() == {"detail": "Admin access required"}
 
 
+def test_admin_can_cleanup_audit_events_via_api(audit_cleanup_client: TestClient) -> None:
+    audit_cleanup_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    audit_cleanup_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    audit_cleanup_client.post(
+        "/api/access/accounts/member@twyd.ai/approve",
+        json={"role": "member"},
+    )
+
+    response = audit_cleanup_client.post("/api/access/audit/cleanup")
+    remaining = audit_cleanup_client.get("/api/access/audit")
+
+    assert response.status_code == 200
+    assert response.json()["events_deleted"] >= 1
+    assert response.json()["retention_days"] == 0
+    assert remaining.status_code == 200
+    assert remaining.json() == []
+
+
 def test_create_job_persists_and_returns_metadata(client: TestClient) -> None:
     response = client.post(
         "/api/jobs",

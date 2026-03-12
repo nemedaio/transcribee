@@ -10,6 +10,7 @@ from lnkdn_transcripts.services.jobs import InvalidRetryError
 from lnkdn_transcripts.storage.models import (
     AccessAccountRead,
     AccessAuditAction,
+    AccessAuditCleanupSummary,
     AccessAuditEventRead,
     AccessRole,
     AccessStatus,
@@ -162,6 +163,13 @@ def export_access_audit_events(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="access-audit.csv"'},
     )
+
+
+@router.post("/access/audit/cleanup", response_model=AccessAuditCleanupSummary)
+def cleanup_access_audit_events(request: Request) -> AccessAuditCleanupSummary:
+    _require_admin(request)
+    retention_days = request.app.state.settings.access_audit_retention_days
+    return request.app.state.access_repository.cleanup_audit_events(retention_days=retention_days)
 
 
 @router.post("/access/accounts/{account_email}/approve", response_model=AccessAccountRead)

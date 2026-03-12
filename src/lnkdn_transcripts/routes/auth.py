@@ -160,6 +160,7 @@ def access_admin(
             "audit_account_email": audit_account_email or "",
             "audit_action": audit_action.value if audit_action else "",
             "audit_search": audit_search or "",
+            "audit_retention_days": request.app.state.settings.access_audit_retention_days,
             "bootstrap_admin_emails": sorted(request.app.state.auth_service.admin_emails),
             "current_admin_email": current_user.email,
         },
@@ -190,4 +191,19 @@ def revoke_access(request: Request, email: str = Form(...)) -> RedirectResponse:
         actor_email=current_user.email,
     )
     logger.info("auth.access.revoked email=%s by=%s", revoked.email, current_user.email)
+    return RedirectResponse(url="/auth/access", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/access/audit/cleanup")
+def cleanup_access_audit(request: Request) -> RedirectResponse:
+    current_user = _require_admin(request)
+    summary = request.app.state.access_repository.cleanup_audit_events(
+        retention_days=request.app.state.settings.access_audit_retention_days
+    )
+    logger.info(
+        "auth.access.audit.cleanup deleted=%s retention_days=%s by=%s",
+        summary.events_deleted,
+        summary.retention_days,
+        current_user.email,
+    )
     return RedirectResponse(url="/auth/access", status_code=status.HTTP_303_SEE_OTHER)

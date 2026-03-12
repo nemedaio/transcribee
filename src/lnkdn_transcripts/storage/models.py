@@ -161,3 +161,9 @@ class AccessAuditEventRead(SQLModel):
     resulting_status: AccessStatus | None
     resulting_role: AccessRole | None
     created_at: datetime
+
+
+class AccessAuditCleanupSummary(SQLModel):
+    events_deleted: int
+    retention_days: int
+    deleted_before: datetime
