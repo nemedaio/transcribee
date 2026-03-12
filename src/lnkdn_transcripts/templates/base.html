@@ -17,6 +17,9 @@
         <a href="/">Submit</a>
         <a href="/dashboard">Dashboard</a>
         <a href="/history">History</a>
+          {% if current_user and current_user.is_admin %}
+        <a href="/auth/access">Access</a>
+          {% endif %}
         {% endif %}
         {% if auth_enabled %}
           {% if current_user %}

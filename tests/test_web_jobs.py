@@ -45,6 +45,75 @@ def test_restricted_google_domain_is_rejected(restricted_auth_client: TestClient
     assert response.json() == {"detail": "Only Google accounts from twyd.ai can sign in"}
 
 
+def test_unapproved_google_user_creates_pending_request(approval_auth_client: TestClient) -> None:
+    response = approval_auth_client.get(
+        "/auth/test-login?email=member@twyd.ai&next=/dashboard",
+        follow_redirects=False,
+    )
+
+    requested_account = approval_auth_client.app.state.access_repository.get_account("member@twyd.ai")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Access request submitted. An admin needs to approve your account."
+    }
+    assert requested_account is not None
+    assert requested_account.status.value == "pending"
+
+
+def test_admin_can_approve_pending_google_user(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai&next=/auth/access", follow_redirects=True)
+    access_page = approval_auth_client.get("/auth/access")
+    approve_response = approval_auth_client.post(
+        "/auth/access/approve",
+        data={"email": "member@twyd.ai", "role": "member"},
+        follow_redirects=False,
+    )
+    approval_auth_client.get("/auth/logout", follow_redirects=False)
+
+    member_login = approval_auth_client.get(
+        "/auth/test-login?email=member@twyd.ai&next=/dashboard",
+        follow_redirects=False,
+    )
+    dashboard = approval_auth_client.get("/dashboard")
+
+    assert access_page.status_code == 200
+    assert "member@twyd.ai" in access_page.text
+    assert approve_response.status_code == 303
+    assert member_login.status_code == 303
+    assert member_login.headers["location"] == "/dashboard"
+    assert dashboard.status_code == 200
+    assert "Job Dashboard" in dashboard.text
+
+
+def test_admin_can_revoke_google_user_access(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post("/auth/access/approve", data={"email": "member@twyd.ai", "role": "member"})
+    approval_auth_client.post("/auth/access/revoke", data={"email": "member@twyd.ai"}, follow_redirects=False)
+    approval_auth_client.get("/auth/logout", follow_redirects=False)
+
+    response = approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Your access has been revoked. Contact an administrator."}
+
+
+def test_member_cannot_open_access_admin_page(approval_auth_client: TestClient) -> None:
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=owner@twyd.ai", follow_redirects=False)
+    approval_auth_client.post("/auth/access/approve", data={"email": "member@twyd.ai", "role": "member"})
+    approval_auth_client.get("/auth/logout", follow_redirects=False)
+    approval_auth_client.get("/auth/test-login?email=member@twyd.ai", follow_redirects=False)
+
+    response = approval_auth_client.get("/auth/access")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Admin access required"}
+
+
 def test_form_submission_redirects_to_job_page(client: TestClient) -> None:
     response = client.post(
         "/jobs",

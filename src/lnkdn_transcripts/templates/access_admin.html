@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Admin</p>
+  <h1>{{ page_title }}</h1>
+  <p class="lede">
+    Review pending Google account requests, approve trusted members, and revoke access when it is
+    no longer needed.
+  </p>
+</section>
+
+<section class="card">
+  <p class="status">
+    Bootstrap admins from configuration: {{ bootstrap_admin_emails|join(", ") if bootstrap_admin_emails else "None configured" }}
+  </p>
+
+  <div class="dashboard-section">
+    <h2>Pending requests</h2>
+    {% if pending_accounts %}
+    <div class="history-list">
+      {% for account in pending_accounts %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2>{{ account.display_name or account.email }}</h2>
+          <p>{{ account.email }} · requested {{ account.requested_at }}</p>
+        </header>
+        <form method="post" action="/auth/access/approve" class="access-form">
+          <input type="hidden" name="email" value="{{ account.email }}" />
+          <label>
+            Role
+            <select name="role">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <button type="submit">Approve</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No pending requests.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-section">
+    <h2>Approved accounts</h2>
+    {% if approved_accounts %}
+    <div class="history-list">
+      {% for account in approved_accounts %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2>{{ account.display_name or account.email }}</h2>
+          <p>{{ account.email }} · {{ account.role.value }} · last login {{ account.last_login_at or "never" }}</p>
+        </header>
+        {% if account.email != current_admin_email %}
+        <form method="post" action="/auth/access/revoke" class="inline-form">
+          <input type="hidden" name="email" value="{{ account.email }}" />
+          <button type="submit">Revoke access</button>
+        </form>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No approved accounts yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-section">
+    <h2>Revoked accounts</h2>
+    {% if revoked_accounts %}
+    <div class="history-list">
+      {% for account in revoked_accounts %}
+      <article class="history-item">
+        <header class="history-header">
+          <h2>{{ account.display_name or account.email }}</h2>
+          <p>{{ account.email }} · revoked</p>
+        </header>
+        <form method="post" action="/auth/access/approve" class="access-form">
+          <input type="hidden" name="email" value="{{ account.email }}" />
+          <label>
+            Role
+            <select name="role">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <button type="submit">Restore</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="status">No revoked accounts.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

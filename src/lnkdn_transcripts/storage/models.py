@@ -19,6 +19,17 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
+class AccessStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REVOKED = "revoked"
+
+
+class AccessRole(str, Enum):
+    MEMBER = "member"
+    ADMIN = "admin"
+
+
 class TranscriptJob(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
     source_url: str
@@ -45,6 +56,19 @@ class TranscriptJob(SQLModel, table=True):
     transcription_completed_at: datetime | None = None
     artifacts_cleaned_at: datetime | None = None
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class AccessAccount(SQLModel, table=True):
+    email: str = Field(primary_key=True, index=True)
+    status: AccessStatus = Field(default=AccessStatus.PENDING, index=True)
+    role: AccessRole = Field(default=AccessRole.MEMBER, index=True)
+    display_name: str | None = None
+    picture_url: str | None = None
+    requested_at: datetime = Field(default_factory=utc_now, nullable=False)
+    approved_at: datetime | None = None
+    approved_by_email: str | None = None
+    last_login_at: datetime | None = None
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
@@ -91,3 +115,18 @@ class CleanupSummary(SQLModel):
     jobs_cleaned: int
     files_deleted: int
     directories_deleted: int
+
+
+class AccessAccountRead(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    status: AccessStatus
+    role: AccessRole
+    display_name: str | None
+    picture_url: str | None
+    requested_at: datetime
+    approved_at: datetime | None
+    approved_by_email: str | None
+    last_login_at: datetime | None
+    updated_at: datetime

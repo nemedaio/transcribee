@@ -23,6 +23,10 @@
   <p class="status">Any verified Google account can sign in.</p>
   {% endif %}
 
+  {% if approval_required %}
+  <p class="status">This workspace also requires admin approval after Google sign-in.</p>
+  {% endif %}
+
   <a class="button-link" href="/auth/google?next={{ next_url|urlencode }}">Continue with Google</a>
   <p class="status">
     After sign-in, we’ll return you to <code>{{ next_url }}</code>.

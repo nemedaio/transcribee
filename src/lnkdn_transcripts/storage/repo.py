@@ -11,7 +11,15 @@ from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.services.audio import PreparedAudio
 from lnkdn_transcripts.services.fetcher import FetchedMedia
 from lnkdn_transcripts.services.transcriber import TranscriptionResult
-from lnkdn_transcripts.storage.models import DashboardCounts, JobStatus, TranscriptJob, utc_now
+from lnkdn_transcripts.storage.models import (
+    AccessAccount,
+    AccessRole,
+    AccessStatus,
+    DashboardCounts,
+    JobStatus,
+    TranscriptJob,
+    utc_now,
+)
 
 logger = get_logger(__name__)
 
@@ -315,3 +323,136 @@ class JobRepository:
             session.commit()
             session.refresh(job)
             return job
+
+
+class AccessRepository:
+    def __init__(self, engine) -> None:
+        self.engine = engine
+
+    def get_account(self, email: str) -> AccessAccount | None:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            return session.get(AccessAccount, normalized_email)
+
+    def record_access_request(
+        self,
+        email: str,
+        display_name: str | None = None,
+        picture_url: str | None = None,
+    ) -> AccessAccount:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            account = session.get(AccessAccount, normalized_email)
+            if account is None:
+                account = AccessAccount(
+                    email=normalized_email,
+                    status=AccessStatus.PENDING,
+                    role=AccessRole.MEMBER,
+                    display_name=display_name,
+                    picture_url=picture_url,
+                )
+            else:
+                if account.status == AccessStatus.PENDING:
+                    account.display_name = display_name or account.display_name
+                    account.picture_url = picture_url or account.picture_url
+                account.updated_at = utc_now()
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            return account
+
+    def ensure_account(
+        self,
+        email: str,
+        role: AccessRole,
+        display_name: str | None = None,
+        picture_url: str | None = None,
+        approved_by_email: str | None = None,
+    ) -> AccessAccount:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            account = session.get(AccessAccount, normalized_email)
+            now = utc_now()
+            if account is None:
+                account = AccessAccount(
+                    email=normalized_email,
+                    status=AccessStatus.APPROVED,
+                    role=role,
+                    display_name=display_name,
+                    picture_url=picture_url,
+                    requested_at=now,
+                    approved_at=now,
+                    approved_by_email=approved_by_email,
+                    updated_at=now,
+                )
+            else:
+                account.status = AccessStatus.APPROVED
+                account.role = role
+                account.display_name = display_name or account.display_name
+                account.picture_url = picture_url or account.picture_url
+                account.approved_at = account.approved_at or now
+                account.approved_by_email = approved_by_email or account.approved_by_email
+                account.updated_at = now
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            return account
+
+    def record_login(self, email: str, display_name: str | None = None) -> AccessAccount:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            account = session.get(AccessAccount, normalized_email)
+            if account is None:
+                raise LookupError(f"Access account {normalized_email} not found")
+            account.display_name = display_name or account.display_name
+            account.last_login_at = utc_now()
+            account.updated_at = utc_now()
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            return account
+
+    def list_accounts(self, statuses: list[AccessStatus], limit: int = 100) -> list[AccessAccount]:
+        with Session(self.engine) as session:
+            statement = (
+                select(AccessAccount)
+                .where(AccessAccount.status.in_(statuses))
+                .order_by(AccessAccount.updated_at.desc())
+                .limit(limit)
+            )
+            return list(session.exec(statement))
+
+    def approve_account(
+        self,
+        email: str,
+        approved_by_email: str,
+        role: AccessRole = AccessRole.MEMBER,
+    ) -> AccessAccount:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            account = session.get(AccessAccount, normalized_email)
+            if account is None:
+                account = AccessAccount(email=normalized_email)
+            account.status = AccessStatus.APPROVED
+            account.role = role
+            account.approved_at = utc_now()
+            account.approved_by_email = approved_by_email.strip().lower()
+            account.updated_at = utc_now()
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            return account
+
+    def revoke_account(self, email: str) -> AccessAccount:
+        normalized_email = email.strip().lower()
+        with Session(self.engine) as session:
+            account = session.get(AccessAccount, normalized_email)
+            if account is None:
+                raise LookupError(f"Access account {normalized_email} not found")
+            account.status = AccessStatus.REVOKED
+            account.role = AccessRole.MEMBER
+            account.updated_at = utc_now()
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            return account

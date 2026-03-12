@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block body %}
+<section class="hero">
+  <p class="eyebrow">Access control</p>
+  <h1>{{ page_title }}</h1>
+  <p class="lede">
+    Google sign-in worked, but this workspace still requires explicit approval before the app can
+    be used.
+  </p>
+</section>
+
+<section class="card auth-card">
+  <p class="status">{{ message }}</p>
+  <p class="status">
+    If you expected access already, contact the workspace administrator and ask them to review your
+    Google account.
+  </p>
+  <a class="button-link subtle-link" href="/auth/login">Back to sign in</a>
+</section>
+{% endblock %}

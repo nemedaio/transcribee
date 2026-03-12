@@ -22,7 +22,12 @@ from lnkdn_transcripts.services.exporters import TranscriptExporter
 from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
 from lnkdn_transcripts.services.transcriber import FasterWhisperTranscriber, MediaTranscriber
 from lnkdn_transcripts.services.jobs import JobService
-from lnkdn_transcripts.storage.repo import JobRepository, create_db_and_tables, create_engine
+from lnkdn_transcripts.storage.repo import (
+    AccessRepository,
+    JobRepository,
+    create_db_and_tables,
+    create_engine,
+)
 
 logger = get_logger(__name__)
 
@@ -93,6 +98,7 @@ def create_app(
         )
     app.state.settings = resolved_settings
     app.state.auth_service = auth_service
+    app.state.access_repository = AccessRepository(engine)
     app.state.job_repository = JobRepository(engine)
     app.state.media_fetcher = resolved_media_fetcher
     app.state.audio_preparer = resolved_audio_preparer

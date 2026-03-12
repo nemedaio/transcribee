@@ -72,6 +72,9 @@ Optional hardening:
 
 ```bash
 GOOGLE_ALLOWED_EMAIL_DOMAINS=twyd.ai
+GOOGLE_ALLOWED_EMAILS=member@twyd.ai,ops@twyd.ai
+GOOGLE_ADMIN_EMAILS=owner@twyd.ai
+GOOGLE_REQUIRE_APPROVAL=true
 SESSION_HTTPS_ONLY=true
 ```
 
@@ -87,10 +90,12 @@ With auth enabled:
 - API requests return `401 {"detail": "Authentication required"}`
 - signed-in users can log out from the top navigation
 - access can be limited to one or more Google Workspace domains
+- access can also require admin approval, with bootstrap admins defined in environment config
+- approved, pending, and revoked accounts are stored in SQLite for review
 
 ## Current branch status
 
-`codex/google-auth` extends the persistent workflow:
+`codex/auth-access-controls` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
@@ -108,6 +113,8 @@ With auth enabled:
 - run retention cleanup for old finished-job artifacts from the dashboard or API
 - protect the app and API behind optional Google account sign-in
 - support optional allowed-domain checks for Google Workspace accounts
+- store pending, approved, and revoked Google accounts in SQLite
+- expose an admin-only access page for approval and revocation
 - fetch job status over JSON
 - show transcript output in the browser
 
@@ -140,6 +147,8 @@ Additional auth events are logged for:
 - unauthenticated route access
 - Google login start and success
 - rejected Google accounts
+- pending access requests
+- access approvals and revocations
 - logout and test-mode login
 
 ## API snapshot
@@ -150,6 +159,9 @@ GET  /auth/login
 GET  /auth/google
 GET  /auth/callback
 GET  /auth/logout
+GET  /auth/access
+POST /auth/access/approve
+POST /auth/access/revoke
 GET  /
 GET  /dashboard
 POST /jobs
@@ -182,6 +194,7 @@ Current automated coverage focuses on the first backend contract plus fetch and 
 - ffmpeg-style audio preparation and artifact cleanup
 - Google-auth protected web and API access
 - Google test-mode login, logout, and allowed-domain rejection
+- approval-required Google sign-in, admin approval, and revocation flow
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

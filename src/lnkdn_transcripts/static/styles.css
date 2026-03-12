@@ -162,9 +162,37 @@ h1 {
   font-weight: 700;
 }
 
+.subtle-link {
+  background: rgba(10, 102, 194, 0.12);
+  color: var(--accent-dark);
+}
+
 .auth-card {
   display: grid;
   gap: 8px;
+}
+
+.access-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.access-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.access-form select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .status {

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
     google_allowed_email_domains: str | None = None
+    google_allowed_emails: str | None = None
+    google_admin_emails: str | None = None
+    google_require_approval: bool = False
     extracted_audio_format: str = "wav"
     extracted_audio_sample_rate: int = 16000
     extracted_audio_channels: int = 1
