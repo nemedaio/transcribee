@@ -12,8 +12,8 @@
         <p class="eyebrow">Transcription job</p>
         <h1>Job {{ job.id }}</h1>
         <p class="lede">
-          This branch stores and exposes job state. Media fetching and transcription will update
-          this page in the next implementation branches.
+          This branch fetches media locally and transcribes it immediately in-process so the job
+          page shows the first end-to-end transcript result.
         </p>
       </section>
 
@@ -57,15 +57,27 @@
             <dt>Fetcher</dt>
             <dd>{{ job.extractor_name or "Pending" }}</dd>
           </div>
+          <div>
+            <dt>Language</dt>
+            <dd>{{ job.transcript_language or "Pending" }}</dd>
+          </div>
+          <div>
+            <dt>Segments</dt>
+            <dd>{{ job.transcript_segment_count or "Pending" }}</dd>
+          </div>
         </dl>
         <p class="status">
           Polling is ready through <code>/api/jobs/{{ job.id }}</code>. This branch performs an
-          immediate in-process media fetch and records either a local artifact path or a fetch
-          failure message.
+          immediate in-process media fetch followed by local transcription and records either a
+          completed transcript or a processing error.
         </p>
         {% if job.last_error %}
         <p class="status error-text">Last error: {{ job.last_error }}</p>
         {% endif %}
+        <div class="transcript-block">
+          <h2>Transcript</h2>
+          <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
+        </div>
         <p><a href="/">Create another job</a></p>
       </section>
     </main>

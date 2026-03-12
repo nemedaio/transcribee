@@ -57,23 +57,24 @@ The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. T
 
 ## Current branch status
 
-`codex/media-fetcher` extends the first persistent workflow:
+`codex/whisper-transcriber` extends the persistent workflow:
 
 - submit one video URL
 - store a transcription job in SQLite
 - fetch media locally with `yt-dlp`
-- persist fetched artifact metadata and fetch errors
+- transcribe fetched media locally with `faster-whisper`
+- persist fetched artifact metadata, transcript output, and processing errors
 - fetch job status over JSON
-- show a basic job detail page in the browser
+- show transcript output in the browser
 
-Jobs now move through fetch states immediately in-process:
+Jobs now move through the first full in-process lifecycle:
 
 - `queued`
 - `fetching`
 - `fetched`
+- `transcribing`
+- `completed`
 - `failed`
-
-Transcription lands on the next branch.
 
 ## Logging
 
@@ -84,6 +85,8 @@ The app emits structured-enough application logs with timestamps, logger name, a
 - job creation
 - fetch start and success
 - fetch failures
+- transcription start and success
+- transcription failures
 - job lookup failures
 
 This is intentionally simple for local development and easy terminal debugging.
@@ -102,12 +105,14 @@ GET  /api/jobs
 
 ## Tests
 
-Current automated coverage focuses on the first backend contract plus media fetch behavior:
+Current automated coverage focuses on the first backend contract plus fetch and transcription behavior:
 
 - healthcheck
 - job creation through the JSON API
 - successful fetch processing with persisted metadata
+- successful transcription processing with persisted transcript output
 - fetch failure persistence
+- transcription failure persistence
 - recent jobs listing
 - 404 handling for missing jobs
 - form submission and job detail rendering

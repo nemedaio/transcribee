@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
 from lnkdn_transcripts.services.fetcher import MediaFetcher
+from lnkdn_transcripts.services.transcriber import MediaTranscriber
 from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.storage.models import TranscriptJob
 from lnkdn_transcripts.storage.repo import JobRepository
@@ -22,9 +23,15 @@ class NormalizedVideoUrl:
 
 
 class JobService:
-    def __init__(self, repository: JobRepository, media_fetcher: MediaFetcher) -> None:
+    def __init__(
+        self,
+        repository: JobRepository,
+        media_fetcher: MediaFetcher,
+        media_transcriber: MediaTranscriber,
+    ) -> None:
         self.repository = repository
         self.media_fetcher = media_fetcher
+        self.media_transcriber = media_transcriber
 
     def create_job(self, raw_url: str) -> TranscriptJob:
         normalized = self._normalize_url(raw_url)
@@ -80,7 +87,35 @@ class JobService:
             fetched_job.status,
             fetched_job.media_file_path,
         )
-        return fetched_job
+        return self.process_transcription(fetched_job.id)
+
+    def process_transcription(self, job_id: str) -> TranscriptJob:
+        job = self.repository.get_job(job_id)
+        if job is None:
+            raise LookupError(f"Job {job_id} not found")
+        if not job.media_file_path:
+            failed_job = self.repository.mark_transcription_failed(job.id, "No local media file is available")
+            logger.warning("jobs.transcription_failed id=%s error=%s", failed_job.id, failed_job.last_error)
+            return failed_job
+
+        job = self.repository.mark_transcription_started(job.id)
+        logger.info("jobs.transcription_start id=%s status=%s", job.id, job.status)
+
+        try:
+            transcription_result = self.media_transcriber.transcribe(job.media_file_path)
+        except Exception as exc:
+            failed_job = self.repository.mark_transcription_failed(job.id, str(exc))
+            logger.warning("jobs.transcription_failed id=%s error=%s", failed_job.id, failed_job.last_error)
+            return failed_job
+
+        completed_job = self.repository.mark_transcription_succeeded(job.id, transcription_result)
+        logger.info(
+            "jobs.transcription_succeeded id=%s status=%s language=%s",
+            completed_job.id,
+            completed_job.status,
+            completed_job.transcript_language,
+        )
+        return completed_job
 
     def _normalize_url(self, raw_url: str) -> NormalizedVideoUrl:
         cleaned_url = raw_url.strip()

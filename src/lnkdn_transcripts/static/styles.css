@@ -99,6 +99,26 @@ h1 {
   color: #9c2f2f;
 }
 
+.transcript-block {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.transcript-block h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.transcript-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
 .recent-jobs {
   margin-top: 24px;
   padding-top: 20px;

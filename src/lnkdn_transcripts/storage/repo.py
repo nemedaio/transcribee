@@ -7,6 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine,
 from lnkdn_transcripts.config import Settings
 from lnkdn_transcripts.logging import get_logger
 from lnkdn_transcripts.services.fetcher import FetchedMedia
+from lnkdn_transcripts.services.transcriber import TranscriptionResult
 from lnkdn_transcripts.storage.models import JobStatus, TranscriptJob, utc_now
 
 logger = get_logger(__name__)
@@ -37,6 +38,10 @@ def _migrate_sqlite_transcript_job_table(engine) -> None:
         "extractor_name": "TEXT",
         "fetch_started_at": "TIMESTAMP",
         "fetch_completed_at": "TIMESTAMP",
+        "transcript_language": "TEXT",
+        "transcript_segment_count": "INTEGER",
+        "transcription_started_at": "TIMESTAMP",
+        "transcription_completed_at": "TIMESTAMP",
     }
     existing_columns = {column["name"] for column in inspect(engine).get_columns("transcriptjob")}
 
@@ -113,6 +118,51 @@ class JobRepository:
             job.status = JobStatus.FAILED
             job.last_error = error_message
             job.fetch_completed_at = utc_now()
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def mark_transcription_started(self, job_id: str) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.status = JobStatus.TRANSCRIBING
+            job.last_error = None
+            job.transcription_started_at = utc_now()
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def mark_transcription_succeeded(self, job_id: str, result: TranscriptionResult) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.status = JobStatus.COMPLETED
+            job.transcript_text = result.text
+            job.transcript_language = result.language
+            job.transcript_segment_count = len(result.segments)
+            job.last_error = None
+            job.transcription_completed_at = utc_now()
+            job.updated_at = utc_now()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+
+    def mark_transcription_failed(self, job_id: str, error_message: str) -> TranscriptJob:
+        with Session(self.engine) as session:
+            job = session.get(TranscriptJob, job_id)
+            if job is None:
+                raise LookupError(f"Job {job_id} not found")
+            job.status = JobStatus.FAILED
+            job.last_error = error_message
+            job.transcription_completed_at = utc_now()
             job.updated_at = utc_now()
             session.add(job)
             session.commit()

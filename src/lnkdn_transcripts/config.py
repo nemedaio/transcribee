@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     media_dir: str | None = None
     database_url: str | None = None
     whisper_model: str = "base"
+    whisper_device: str = "auto"
+    whisper_compute_type: str = "default"
     max_upload_minutes: int = 30
     log_level: str = "INFO"
 
