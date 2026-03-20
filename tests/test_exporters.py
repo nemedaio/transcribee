@@ -4,7 +4,6 @@ import json
 import pytest
 
 from transcribee.services.exporters import (
-    ExportFormat,
     IncompleteTranscriptError,
     TranscriptExporter,
     UnsupportedExportFormatError,
