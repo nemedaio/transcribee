@@ -1,216 +1,111 @@
-# LinkedIn Transcript App
+# Transcribee
 
-Local-first web app for turning a pasted video URL into a transcript using a Whisper-style transcription engine.
+Free, local-first video transcription. Paste a URL, get a transcript — no paywall, no cloud dependency, no data leaving your machine.
 
-## Why this structure
+Built to make LinkedIn video transcripts accessible to everyone.
 
-The fastest route to a working MVP is a Python application that handles all three hard parts in one place:
+## How it works
 
-- URL intake and validation
-- media download and audio extraction
-- local transcription and transcript export
+1. Paste a video URL (LinkedIn, YouTube, or any site supported by yt-dlp)
+2. Transcribee downloads the media and extracts audio locally
+3. A local Whisper model (or cloud API if you prefer) produces timestamped text
+4. Download your transcript as TXT, Markdown, SRT, or VTT
 
-That keeps the first version easy to run on one machine and avoids introducing a separate frontend or queue system before they are needed.
+Everything runs on your computer. No subscriptions, no usage limits.
 
-## Planned flow
-
-1. User pastes a LinkedIn or other supported video URL.
-2. The app creates a transcription job.
-3. A worker downloads the media and extracts audio.
-4. `faster-whisper` produces timestamped text.
-5. The UI shows progress and exposes transcript output.
-
-## Repository layout
-
-```text
-docs/                         Architecture, roadmap, branch strategy
-src/lnkdn_transcripts/        Application code
-src/lnkdn_transcripts/routes/ HTTP routes
-src/lnkdn_transcripts/storage/ Persistence layer
-src/lnkdn_transcripts/services/
-src/lnkdn_transcripts/templates/
-src/lnkdn_transcripts/static/
-tests/                        Test suite
-```
-
-Detailed notes live in [`docs/architecture.md`](./docs/architecture.md) and [`docs/branching.md`](./docs/branching.md).
-
-## MVP stack
-
-- FastAPI for the web server and API
-- Jinja templates for a minimal UI
-- `yt-dlp` for media retrieval
-- `ffmpeg` for audio extraction
-- `faster-whisper` for local transcription
-- SQLite for job and transcript metadata
-
-## Local setup
+## Quick start
 
 ```bash
-/opt/homebrew/bin/python3.12 -m venv .venv
+git clone https://github.com/nemedaio/transcribee.git
+cd transcribee
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn lnkdn_transcripts.main:app --reload
+pip install -e ".[faster-whisper]"
+uvicorn transcribee.main:app
 ```
 
-The app expects Python 3.10+ and `ffmpeg` to be installed on the host machine. The current branch was verified with Python 3.12 on macOS.
+Open http://localhost:8000 and paste a video URL.
 
-### Google auth setup
+> Requires Python 3.10+ and [ffmpeg](https://ffmpeg.org/) installed on your machine.
 
-Google account auth is optional and disabled by default. When enabled, the web app and JSON API require a signed-in Google session.
+## Transcription backends
 
-Set these environment variables before starting the app:
+Transcribee supports multiple backends. Set `TRANSCRIBER_BACKEND` in your `.env` file.
+
+### Local (free, runs on your machine)
+
+| Backend | Install | Notes |
+|---------|---------|-------|
+| `faster-whisper` (default) | `pip install -e ".[faster-whisper]"` | Fast, low memory. Recommended for most users. |
+| `openai-whisper` | `pip install -e ".[openai-whisper]"` | Original OpenAI Whisper. |
+| `whisper-cpp` | `pip install -e ".[whisper-cpp]"` | C++ implementation, good for CPU-only machines. |
+
+### Cloud API (bring your own key)
+
+| Backend | Install | Env vars |
+|---------|---------|----------|
+| `openai-api` | `pip install -e ".[openai-api]"` | `OPENAI_API_KEY` |
+| `deepgram` | `pip install -e "."` | `DEEPGRAM_API_KEY` |
+
+Example `.env` for OpenAI API:
+```bash
+TRANSCRIBER_BACKEND=openai-api
+OPENAI_API_KEY=sk-...
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` and adjust as needed:
 
 ```bash
-AUTH_ENABLED=true
-SESSION_SECRET_KEY=replace-this-with-a-long-random-string
-GOOGLE_CLIENT_ID=your-google-oauth-client-id
-GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+cp .env.example .env
 ```
 
-Optional hardening:
+Key settings:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRANSCRIBER_BACKEND` | `faster-whisper` | Which transcription engine to use |
+| `WHISPER_MODEL` | `large-v3-turbo` | Model name (~1.5 GB, works on 16GB Macs) |
+| `MAX_UPLOAD_MINUTES` | `30` | Max audio duration to process |
+
+For smaller machines or faster startup, use a smaller model:
+```bash
+WHISPER_MODEL=base      # ~140 MB
+WHISPER_MODEL=small     # ~460 MB
+WHISPER_MODEL=medium    # ~1.5 GB
+```
+
+## Features
+
+- Paste any video URL and get a transcript
+- LinkedIn URL normalization (strips tracking params, validates post URLs)
+- Export transcripts as TXT, Markdown, SRT, VTT
+- Job dashboard with status tracking and retry controls
+- Background job processing
+- Artifact retention cleanup
+- Optional Google OAuth authentication with admin access controls
+- Audit trail for access management
+
+## Running tests
 
 ```bash
-GOOGLE_ALLOWED_EMAIL_DOMAINS=twyd.ai
-GOOGLE_ALLOWED_EMAILS=member@twyd.ai,ops@twyd.ai
-GOOGLE_ADMIN_EMAILS=owner@twyd.ai
-GOOGLE_REQUIRE_APPROVAL=true
-ACCESS_AUDIT_RETENTION_DAYS=90
-SESSION_HTTPS_ONLY=true
+pip install -e ".[dev,faster-whisper]"
+pytest
 ```
 
-Configure the Google OAuth redirect URI as:
+## API
 
-```text
-http://localhost:8000/auth/callback
+Transcribee exposes both a browser UI and a JSON API:
+
+```
+POST /api/jobs              Submit a video URL for transcription
+GET  /api/jobs              List recent jobs
+GET  /api/jobs/{id}         Get job status and transcript
+POST /api/jobs/{id}/retry   Retry a failed job
+GET  /api/dashboard         Job status counts
 ```
 
-With auth enabled:
+## License
 
-- browser requests redirect to `/auth/login`
-- API requests return `401 {"detail": "Authentication required"}`
-- signed-in users can log out from the top navigation
-- access can be limited to one or more Google Workspace domains
-- access can also require admin approval, with bootstrap admins defined in environment config
-- approved, pending, and revoked accounts are stored in SQLite for review
-
-## Current branch status
-
-`codex/access-audit-retention` extends the persistent workflow:
-
-- submit one video URL
-- store a transcription job in SQLite
-- fetch media locally with `yt-dlp`
-- extract transcription-ready audio locally with `ffmpeg`
-- transcribe fetched media locally with `faster-whisper`
-- persist fetched artifact metadata, transcript output, segment timings, and processing errors
-- download completed transcripts as TXT, Markdown, SRT, and VTT
-- browse recent jobs from a dedicated history page
-- queue submitted jobs for background processing instead of blocking the request
-- normalize LinkedIn URLs more aggressively and reject non-post/non-video LinkedIn pages with clearer errors
-- expose a dashboard with live status counts and dedicated active/failed/completed sections
-- retry failed jobs from the dashboard, history page, or job detail page
-- clean up raw downloaded media after audio extraction when configured
-- run retention cleanup for old finished-job artifacts from the dashboard or API
-- protect the app and API behind optional Google account sign-in
-- support optional allowed-domain checks for Google Workspace accounts
-- store pending, approved, and revoked Google accounts in SQLite
-- expose an admin-only access page for approval and revocation
-- expose admin-only JSON endpoints for listing, approving, and revoking access accounts
-- store an audit trail for access requests, grants, sign-ins, and revocations
-- support audit filtering/search in the admin UI and API, plus CSV export
-- support retention-based cleanup for old audit events from the admin UI and API
-- fetch job status over JSON
-- show transcript output in the browser
-
-Jobs now move through the first full in-process lifecycle:
-
-- `queued`
-- `fetching`
-- `fetched`
-- `transcribing`
-- `completed`
-- `failed`
-
-## Logging
-
-The app emits structured-enough application logs with timestamps, logger name, and a clear event message for:
-
-- app startup
-- database initialization
-- job creation
-- fetch start and success
-- fetch failures
-- transcription start and success
-- transcription failures
-- job lookup failures
-
-This is intentionally simple for local development and easy terminal debugging.
-
-Additional auth events are logged for:
-
-- unauthenticated route access
-- Google login start and success
-- rejected Google accounts
-- pending access requests
-- access approvals and revocations
-- access audit events for requests, grants, sign-ins, and revocations
-- logout and test-mode login
-
-## API snapshot
-
-```text
-GET  /health
-GET  /auth/login
-GET  /auth/google
-GET  /auth/callback
-GET  /auth/logout
-GET  /auth/access
-POST /auth/access/approve
-POST /auth/access/revoke
-GET  /
-GET  /dashboard
-POST /jobs
-POST /jobs/{job_id}/retry
-POST /dashboard/cleanup
-GET  /jobs/{job_id}
-POST /api/jobs
-GET  /api/dashboard
-POST /api/jobs/{job_id}/retry
-POST /api/maintenance/cleanup-artifacts
-GET  /api/jobs/{job_id}
-GET  /api/jobs
-GET  /api/access/accounts
-GET  /api/access/audit
-GET  /api/access/audit/export.csv
-POST /api/access/audit/cleanup
-POST /api/access/accounts/{account_email}/approve
-POST /api/access/accounts/{account_email}/revoke
-```
-
-## Tests
-
-Current automated coverage focuses on the first backend contract plus fetch and transcription behavior:
-
-- healthcheck
-- job creation through the JSON API
-- successful fetch processing with persisted metadata
-- successful transcription processing with persisted transcript output
-- fetch failure persistence
-- transcription failure persistence
-- transcript export endpoints
-- history page rendering
-- queued job submission and later completion through the background runner
-- LinkedIn-specific normalization and validation rules
-- dashboard status counts and retry flow
-- ffmpeg-style audio preparation and artifact cleanup
-- Google-auth protected web and API access
-- Google test-mode login, logout, and allowed-domain rejection
-- approval-required Google sign-in, admin approval, and revocation flow
-- admin-only access-management JSON API
-- access audit history in the admin UI and API
-- audit filtering/search and CSV export
-- audit retention cleanup
-- recent jobs listing
-- 404 handling for missing jobs
-- form submission and job detail rendering
+[MIT](LICENSE)

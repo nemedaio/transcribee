@@ -8,21 +8,21 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
-from lnkdn_transcripts.config import Settings, settings
-from lnkdn_transcripts.logging import configure_logging, get_logger
-from lnkdn_transcripts.routes.auth import router as auth_router
-from lnkdn_transcripts.routes.api import router as api_router
-from lnkdn_transcripts.routes.health import router as health_router
-from lnkdn_transcripts.routes.web import router as web_router
-from lnkdn_transcripts.services.artifacts import ArtifactCleanupService
-from lnkdn_transcripts.services.auth import GoogleAuthConfigurationError, GoogleAuthService
-from lnkdn_transcripts.services.audio import AudioPreparer, FfmpegAudioPreparer
-from lnkdn_transcripts.services.background_jobs import JobRunner, ThreadedJobRunner
-from lnkdn_transcripts.services.exporters import TranscriptExporter
-from lnkdn_transcripts.services.fetcher import MediaFetcher, YtDlpMediaFetcher
-from lnkdn_transcripts.services.transcriber import FasterWhisperTranscriber, MediaTranscriber
-from lnkdn_transcripts.services.jobs import JobService
-from lnkdn_transcripts.storage.repo import (
+from transcribee.config import Settings, settings
+from transcribee.logging import configure_logging, get_logger
+from transcribee.routes.auth import router as auth_router
+from transcribee.routes.api import router as api_router
+from transcribee.routes.health import router as health_router
+from transcribee.routes.web import router as web_router
+from transcribee.services.artifacts import ArtifactCleanupService
+from transcribee.services.auth import GoogleAuthService
+from transcribee.services.audio import AudioPreparer, FfmpegAudioPreparer
+from transcribee.services.background_jobs import JobRunner, ThreadedJobRunner
+from transcribee.services.exporters import TranscriptExporter
+from transcribee.services.fetcher import MediaFetcher, YtDlpMediaFetcher
+from transcribee.services.transcriber import MediaTranscriber, create_transcriber
+from transcribee.services.jobs import JobService
+from transcribee.storage.repo import (
     AccessRepository,
     JobRepository,
     create_db_and_tables,
@@ -71,7 +71,7 @@ def create_app(
     engine = create_engine(resolved_settings)
     resolved_media_fetcher = media_fetcher or YtDlpMediaFetcher(resolved_settings)
     resolved_audio_preparer = audio_preparer or FfmpegAudioPreparer(resolved_settings)
-    resolved_media_transcriber = media_transcriber or FasterWhisperTranscriber(resolved_settings)
+    resolved_media_transcriber = media_transcriber or create_transcriber(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -87,8 +87,6 @@ def create_app(
     app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
     app.add_middleware(AuthenticationMiddleware, auth_service=auth_service)
     if resolved_settings.auth_enabled:
-        if not resolved_settings.session_secret_key:
-            raise GoogleAuthConfigurationError("Session secret key is required when auth is enabled")
         app.add_middleware(
             SessionMiddleware,
             secret_key=resolved_settings.session_secret_key,
@@ -122,7 +120,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(api_router)
     app.include_router(web_router)
-    app.mount("/static", StaticFiles(directory="src/lnkdn_transcripts/static"), name="static")
+    app.mount("/static", StaticFiles(directory="src/transcribee/static"), name="static")
     return app
 
 

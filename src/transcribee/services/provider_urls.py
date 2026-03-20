@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
-from lnkdn_transcripts.logging import get_logger
+from transcribee.logging import get_logger
 
 logger = get_logger(__name__)
 

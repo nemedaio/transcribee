@@ -11,6 +11,6 @@ def template_context(request: Request) -> dict:
 
 
 templates = Jinja2Templates(
-    directory="src/lnkdn_transcripts/templates",
+    directory="src/transcribee/templates",
     context_processors=[template_context],
 )

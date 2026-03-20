@@ -3,9 +3,9 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.services.transcriber import TranscriptSegment
-from lnkdn_transcripts.storage.models import JobStatus, TranscriptJob
+from transcribee.logging import get_logger
+from transcribee.services.transcriber import TranscriptSegment
+from transcribee.storage.models import JobStatus, TranscriptJob
 
 logger = get_logger(__name__)
 

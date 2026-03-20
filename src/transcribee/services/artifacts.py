@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import shutil
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import CleanupSummary, TranscriptJob
+from transcribee.config import Settings
+from transcribee.logging import get_logger
+from transcribee.storage.models import CleanupSummary, TranscriptJob
 
 logger = get_logger(__name__)
 

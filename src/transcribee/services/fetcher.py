@@ -4,9 +4,9 @@ from typing import Protocol
 
 from yt_dlp import YoutubeDL
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import TranscriptJob
+from transcribee.config import Settings
+from transcribee.logging import get_logger
+from transcribee.storage.models import TranscriptJob
 
 logger = get_logger(__name__)
 

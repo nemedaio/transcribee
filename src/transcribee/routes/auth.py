@@ -1,25 +1,19 @@
 from fastapi import APIRouter, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.services.auth import (
+from transcribee.logging import get_logger
+from transcribee.routes.dependencies import require_admin
+from transcribee.services.auth import (
     AccessApprovalRequiredError,
     GoogleAuthConfigurationError,
     UnauthorizedGoogleAccountError,
 )
-from lnkdn_transcripts.storage.models import AccessAuditAction, AccessRole, AccessStatus
-from lnkdn_transcripts.templates import templates
+from transcribee.storage.models import AccessAuditAction, AccessRole, AccessStatus
+from transcribee.templates import templates
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def _require_admin(request: Request):
-    current_user = request.app.state.auth_service.current_user(request)
-    if current_user is None or not current_user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return current_user
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -139,7 +133,7 @@ def access_admin(
     audit_action: AccessAuditAction | None = Query(None),
     audit_search: str | None = Query(None),
 ) -> HTMLResponse:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     access_repository = request.app.state.access_repository
     return templates.TemplateResponse(
         request,
@@ -173,7 +167,7 @@ def approve_access(
     email: str = Form(...),
     role: AccessRole = Form(AccessRole.MEMBER),
 ) -> RedirectResponse:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     approved = request.app.state.access_repository.approve_account(
         email=email,
         approved_by_email=current_user.email,
@@ -185,7 +179,7 @@ def approve_access(
 
 @router.post("/access/revoke")
 def revoke_access(request: Request, email: str = Form(...)) -> RedirectResponse:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     revoked = request.app.state.access_repository.revoke_account(
         email=email,
         actor_email=current_user.email,
@@ -196,7 +190,7 @@ def revoke_access(request: Request, email: str = Form(...)) -> RedirectResponse:
 
 @router.post("/access/audit/cleanup")
 def cleanup_access_audit(request: Request) -> RedirectResponse:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     summary = request.app.state.access_repository.cleanup_audit_events(
         retention_days=request.app.state.settings.access_audit_retention_days
     )

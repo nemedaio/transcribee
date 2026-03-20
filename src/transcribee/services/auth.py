@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import Request
 from pydantic import BaseModel, ValidationError
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import AccessRole, AccessStatus
+from transcribee.config import Settings
+from transcribee.logging import get_logger
+from transcribee.storage.models import AccessRole, AccessStatus
 
 try:
     from authlib.integrations.starlette_client import OAuth

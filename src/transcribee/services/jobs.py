@@ -1,13 +1,13 @@
-from lnkdn_transcripts.services.artifacts import ArtifactCleanupService
-from lnkdn_transcripts.services.audio import AudioPreparer
-from lnkdn_transcripts.services.fetcher import MediaFetcher
-from lnkdn_transcripts.services.provider_urls import (
+from transcribee.services.artifacts import ArtifactCleanupService
+from transcribee.services.audio import AudioPreparer
+from transcribee.services.fetcher import MediaFetcher
+from transcribee.services.provider_urls import (
     VideoUrlNormalizer,
 )
-from lnkdn_transcripts.services.transcriber import MediaTranscriber
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.storage.models import CleanupSummary, DashboardCounts, JobStatus, TranscriptJob
-from lnkdn_transcripts.storage.repo import JobRepository
+from transcribee.services.transcriber import MediaTranscriber
+from transcribee.logging import get_logger
+from transcribee.storage.models import CleanupSummary, DashboardCounts, JobStatus, TranscriptJob
+from transcribee.storage.repo import JobRepository
 
 logger = get_logger(__name__)
 

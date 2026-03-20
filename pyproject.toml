@@ -3,10 +3,11 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lnkdn-transcripts"
+name = "transcribee"
 version = "0.1.0"
-description = "Local-first URL to transcript web app"
+description = "Local-first URL-to-transcript web app with pluggable transcription backends"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
   "authlib>=1.6.4,<2.0.0",
@@ -19,10 +20,14 @@ dependencies = [
   "pydantic>=2.11.9,<3.0.0",
   "sqlmodel>=0.0.24,<1.0.0",
   "yt-dlp>=2026.1.1",
-  "faster-whisper>=1.1.1",
 ]
 
 [project.optional-dependencies]
+faster-whisper = ["faster-whisper>=1.1.1"]
+openai-whisper = ["openai-whisper>=20231117"]
+whisper-cpp = ["pywhispercpp>=1.2.0"]
+openai-api = ["openai>=1.0.0"]
+deepgram = []
 dev = [
   "httpx>=0.28.1,<1.0.0",
   "pytest>=8.4.2,<9.0.0",

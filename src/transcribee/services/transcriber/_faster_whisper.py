@@ -1,35 +1,12 @@
-from dataclasses import dataclass
-from typing import Protocol
-
-from faster_whisper import WhisperModel
-
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
+from transcribee.config import Settings
+from transcribee.logging import get_logger
+from transcribee.services.transcriber._protocol import (
+    TranscriptionError,
+    TranscriptionResult,
+    TranscriptSegment,
+)
 
 logger = get_logger(__name__)
-
-
-class TranscriptionError(RuntimeError):
-    """Raised when fetched media cannot be transcribed."""
-
-
-@dataclass
-class TranscriptSegment:
-    start_seconds: float
-    end_seconds: float
-    text: str
-
-
-@dataclass
-class TranscriptionResult:
-    text: str
-    language: str | None
-    segments: list[TranscriptSegment]
-
-
-class MediaTranscriber(Protocol):
-    def transcribe(self, media_file_path: str) -> TranscriptionResult:
-        """Return transcript output for a local media file."""
 
 
 class FasterWhisperTranscriber:
@@ -37,10 +14,10 @@ class FasterWhisperTranscriber:
         self.model_name = settings.whisper_model
         self.device = settings.whisper_device
         self.compute_type = settings.whisper_compute_type
-        self._model: WhisperModel | None = None
+        self._model = None
 
     def transcribe(self, media_file_path: str) -> TranscriptionResult:
-        logger.info("transcriber.start path=%s model=%s", media_file_path, self.model_name)
+        logger.info("transcriber.start path=%s model=%s backend=faster-whisper", media_file_path, self.model_name)
         try:
             model = self._load_model()
             segments, info = model.transcribe(media_file_path)
@@ -52,7 +29,9 @@ class FasterWhisperTranscriber:
                 )
                 for segment in segments
             ]
-        except Exception as exc:  # pragma: no cover - exercised through service tests with fakes
+        except TranscriptionError:
+            raise
+        except Exception as exc:
             raise TranscriptionError(str(exc)) from exc
 
         transcript_text = " ".join(segment.text for segment in collected_segments if segment.text).strip()
@@ -68,8 +47,15 @@ class FasterWhisperTranscriber:
             segments=collected_segments,
         )
 
-    def _load_model(self) -> WhisperModel:
+    def _load_model(self):
         if self._model is None:
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError:
+                raise TranscriptionError(
+                    "The faster-whisper backend requires the 'faster-whisper' package. "
+                    "Install it with: pip install transcribee[faster-whisper]"
+                )
             self._model = WhisperModel(
                 self.model_name,
                 device=self.device,

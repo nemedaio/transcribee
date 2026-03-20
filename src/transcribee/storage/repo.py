@@ -3,15 +3,15 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
-from sqlalchemy import func, inspect, or_, text
+from sqlalchemy import delete, func, inspect, or_, text
 from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine, select
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
-from lnkdn_transcripts.services.audio import PreparedAudio
-from lnkdn_transcripts.services.fetcher import FetchedMedia
-from lnkdn_transcripts.services.transcriber import TranscriptionResult
-from lnkdn_transcripts.storage.models import (
+from transcribee.config import Settings
+from transcribee.logging import get_logger
+from transcribee.services.audio import PreparedAudio
+from transcribee.services.fetcher import FetchedMedia
+from transcribee.services.transcriber import TranscriptionResult
+from transcribee.storage.models import (
     AccessAccount,
     AccessAuditAction,
     AccessAuditCleanupSummary,
@@ -332,8 +332,12 @@ class AccessRepository:
     def __init__(self, engine) -> None:
         self.engine = engine
 
+    @staticmethod
+    def _normalize_email(email: str) -> str:
+        return email.strip().lower()
+
     def get_account(self, email: str) -> AccessAccount | None:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             return session.get(AccessAccount, normalized_email)
 
@@ -343,7 +347,7 @@ class AccessRepository:
         display_name: str | None = None,
         picture_url: str | None = None,
     ) -> AccessAccount:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             created_request = False
@@ -383,7 +387,7 @@ class AccessRepository:
         picture_url: str | None = None,
         approved_by_email: str | None = None,
     ) -> AccessAccount:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             now = utc_now()
@@ -430,7 +434,7 @@ class AccessRepository:
             return account
 
     def record_login(self, email: str, display_name: str | None = None) -> AccessAccount:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             if account is None:
@@ -472,7 +476,7 @@ class AccessRepository:
         with Session(self.engine) as session:
             statement = select(AccessAuditEvent)
             if account_email:
-                statement = statement.where(AccessAuditEvent.account_email == account_email.strip().lower())
+                statement = statement.where(AccessAuditEvent.account_email == self._normalize_email(account_email))
             if actions:
                 statement = statement.where(AccessAuditEvent.action.in_(actions))
             if query:
@@ -490,13 +494,13 @@ class AccessRepository:
     def cleanup_audit_events(self, retention_days: int) -> AccessAuditCleanupSummary:
         cutoff = utc_now() - timedelta(days=retention_days)
         with Session(self.engine) as session:
-            statement = select(AccessAuditEvent).where(AccessAuditEvent.created_at < cutoff)
-            events = list(session.exec(statement))
-            for event in events:
-                session.delete(event)
+            result = session.exec(
+                delete(AccessAuditEvent).where(AccessAuditEvent.created_at < cutoff)
+            )
+            deleted_count = result.rowcount
             session.commit()
             return AccessAuditCleanupSummary(
-                events_deleted=len(events),
+                events_deleted=deleted_count,
                 retention_days=retention_days,
                 deleted_before=cutoff,
             )
@@ -507,7 +511,7 @@ class AccessRepository:
         approved_by_email: str,
         role: AccessRole = AccessRole.MEMBER,
     ) -> AccessAccount:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             if account is None:
@@ -515,14 +519,14 @@ class AccessRepository:
             account.status = AccessStatus.APPROVED
             account.role = role
             account.approved_at = utc_now()
-            account.approved_by_email = approved_by_email.strip().lower()
+            account.approved_by_email = self._normalize_email(approved_by_email)
             account.updated_at = utc_now()
             session.add(account)
             self._append_audit_event(
                 session,
                 account_email=normalized_email,
                 action=AccessAuditAction.GRANTED,
-                actor_email=approved_by_email.strip().lower(),
+                actor_email=self._normalize_email(approved_by_email),
                 note="Admin approval recorded",
                 resulting_status=account.status,
                 resulting_role=account.role,
@@ -532,7 +536,7 @@ class AccessRepository:
             return account
 
     def revoke_account(self, email: str, actor_email: str | None = None) -> AccessAccount:
-        normalized_email = email.strip().lower()
+        normalized_email = self._normalize_email(email)
         with Session(self.engine) as session:
             account = session.get(AccessAccount, normalized_email)
             if account is None:
@@ -566,9 +570,9 @@ class AccessRepository:
     ) -> None:
         session.add(
             AccessAuditEvent(
-                account_email=account_email.strip().lower(),
+                account_email=self._normalize_email(account_email),
                 action=action,
-                actor_email=actor_email.strip().lower() if actor_email else None,
+                actor_email=self._normalize_email(actor_email) if actor_email else None,
                 note=note,
                 resulting_status=resulting_status,
                 resulting_role=resulting_role,

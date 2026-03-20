@@ -5,9 +5,10 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from lnkdn_transcripts.services.provider_urls import InvalidVideoUrlError
-from lnkdn_transcripts.services.jobs import InvalidRetryError
-from lnkdn_transcripts.storage.models import (
+from transcribee.routes.dependencies import require_admin
+from transcribee.services.provider_urls import InvalidVideoUrlError
+from transcribee.services.jobs import InvalidRetryError
+from transcribee.storage.models import (
     AccessAccountRead,
     AccessAuditAction,
     AccessAuditCleanupSummary,
@@ -32,13 +33,6 @@ class AccessApprovalPayload(BaseModel):
 
 def _job_service(request: Request):
     return request.app.state.job_service
-
-
-def _require_admin(request: Request):
-    current_user = request.app.state.auth_service.current_user(request)
-    if current_user is None or not current_user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return current_user
 
 
 @router.post("/jobs", response_model=JobRead, status_code=status.HTTP_202_ACCEPTED)
@@ -94,7 +88,7 @@ def list_access_accounts(
     request: Request,
     status_filters: list[AccessStatus] | None = Query(None, alias="status"),
 ) -> list[AccessAccountRead]:
-    _require_admin(request)
+    require_admin(request)
     statuses = status_filters or [AccessStatus.PENDING, AccessStatus.APPROVED, AccessStatus.REVOKED]
     accounts = request.app.state.access_repository.list_accounts(statuses=statuses)
     return [AccessAccountRead.model_validate(account) for account in accounts]
@@ -108,7 +102,7 @@ def list_access_audit_events(
     search: str | None = Query(None),
     limit: int = Query(100, ge=1, le=500),
 ) -> list[AccessAuditEventRead]:
-    _require_admin(request)
+    require_admin(request)
     events = request.app.state.access_repository.list_audit_events(
         account_email=account_email,
         actions=actions,
@@ -126,7 +120,7 @@ def export_access_audit_events(
     search: str | None = Query(None),
     limit: int = Query(500, ge=1, le=1000),
 ) -> Response:
-    _require_admin(request)
+    require_admin(request)
     events = request.app.state.access_repository.list_audit_events(
         account_email=account_email,
         actions=actions,
@@ -167,7 +161,7 @@ def export_access_audit_events(
 
 @router.post("/access/audit/cleanup", response_model=AccessAuditCleanupSummary)
 def cleanup_access_audit_events(request: Request) -> AccessAuditCleanupSummary:
-    _require_admin(request)
+    require_admin(request)
     retention_days = request.app.state.settings.access_audit_retention_days
     return request.app.state.access_repository.cleanup_audit_events(retention_days=retention_days)
 
@@ -178,7 +172,7 @@ def approve_access_account(
     payload: AccessApprovalPayload,
     request: Request,
 ) -> AccessAccountRead:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     account = request.app.state.access_repository.approve_account(
         email=account_email,
         approved_by_email=current_user.email,
@@ -189,7 +183,7 @@ def approve_access_account(
 
 @router.post("/access/accounts/{account_email}/revoke", response_model=AccessAccountRead)
 def revoke_access_account(account_email: str, request: Request) -> AccessAccountRead:
-    current_user = _require_admin(request)
+    current_user = require_admin(request)
     try:
         account = request.app.state.access_repository.revoke_account(
             account_email,

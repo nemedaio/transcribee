@@ -1,17 +1,17 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.services.audio import AudioPreparationError, PreparedAudio
-from lnkdn_transcripts.main import create_app
-from lnkdn_transcripts.services.background_jobs import InlineJobRunner, ManualJobRunner
-from lnkdn_transcripts.services.fetcher import FetchedMedia, MediaFetchError
-from lnkdn_transcripts.services.transcriber import TranscriptSegment, TranscriptionError, TranscriptionResult
-from lnkdn_transcripts.storage.models import TranscriptJob
+from transcribee.config import Settings
+from transcribee.services.audio import AudioPreparationError, PreparedAudio
+from transcribee.main import create_app
+from transcribee.services.background_jobs import InlineJobRunner, JobRunner, ManualJobRunner
+from transcribee.services.fetcher import FetchedMedia, MediaFetchError
+from transcribee.services.transcriber import TranscriptSegment, TranscriptionError, TranscriptionResult
+from transcribee.storage.models import TranscriptJob
 
 
 @dataclass
@@ -64,240 +64,111 @@ class FakeTranscriber:
         )
 
 
-@pytest.fixture
-def client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
+def _build_test_client(
+    tmp_path: Path,
+    *,
+    fetcher_fail: bool = False,
+    audio_fail: bool = False,
+    transcriber_fail: bool = False,
+    runner_factory: Callable[[Callable[[str], None]], JobRunner] | None = None,
+    **settings_overrides,
+) -> TestClient:
+    base_settings = dict(
         data_dir=str(tmp_path / "data"),
         media_dir=str(tmp_path / "media"),
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         retain_source_media=False,
         log_level="DEBUG",
     )
+    base_settings.update(settings_overrides)
     app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
+        Settings(**base_settings),
+        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media", should_fail=fetcher_fail),
+        audio_preparer=FakeAudioPreparer(should_fail=audio_fail),
+        media_transcriber=FakeTranscriber(should_fail=transcriber_fail),
+        job_runner_factory=runner_factory or (lambda processor: InlineJobRunner(processor)),
     )
+    return TestClient(app)
 
-    with TestClient(app) as test_client:
+
+@pytest.fixture
+def client(tmp_path) -> Generator[TestClient, None, None]:
+    with _build_test_client(tmp_path) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def fetch_failing_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media", should_fail=True),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, fetcher_fail=True) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def transcription_failing_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(should_fail=True),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, transcriber_fail=True) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def queued_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: ManualJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(
+        tmp_path, runner_factory=lambda processor: ManualJobRunner(processor)
+    ) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def cleanup_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        retain_source_media=False,
-        artifact_retention_days=0,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, artifact_retention_days=0) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def audio_failing_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(should_fail=True),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, audio_fail=True) as test_client:
         yield test_client
+
+
+_AUTH_SETTINGS = dict(
+    auth_enabled=True,
+    auth_test_mode=True,
+    session_secret_key="test-session-secret",
+    google_client_id="test-google-client-id",
+    google_client_secret="test-google-client-secret",
+)
 
 
 @pytest.fixture
 def auth_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        auth_enabled=True,
-        auth_test_mode=True,
-        session_secret_key="test-session-secret",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, **_AUTH_SETTINGS) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def restricted_auth_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        auth_enabled=True,
-        auth_test_mode=True,
-        session_secret_key="test-session-secret",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        google_allowed_email_domains="twyd.ai",
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(
+        tmp_path, **_AUTH_SETTINGS, google_allowed_email_domains="twyd.ai"
+    ) as test_client:
         yield test_client
+
+
+_APPROVAL_SETTINGS = dict(
+    **_AUTH_SETTINGS,
+    google_allowed_email_domains="twyd.ai",
+    google_admin_emails="owner@twyd.ai",
+    google_require_approval=True,
+)
 
 
 @pytest.fixture
 def approval_auth_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        auth_enabled=True,
-        auth_test_mode=True,
-        session_secret_key="test-session-secret",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        google_allowed_email_domains="twyd.ai",
-        google_admin_emails="owner@twyd.ai",
-        google_require_approval=True,
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(tmp_path, **_APPROVAL_SETTINGS) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def audit_cleanup_client(tmp_path) -> Generator[TestClient, None, None]:
-    settings = Settings(
-        data_dir=str(tmp_path / "data"),
-        media_dir=str(tmp_path / "media"),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
-        auth_enabled=True,
-        auth_test_mode=True,
-        session_secret_key="test-session-secret",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        google_allowed_email_domains="twyd.ai",
-        google_admin_emails="owner@twyd.ai",
-        google_require_approval=True,
-        access_audit_retention_days=0,
-        retain_source_media=False,
-        log_level="DEBUG",
-    )
-    app = create_app(
-        settings,
-        media_fetcher=FakeMediaFetcher(base_dir=tmp_path / "media"),
-        audio_preparer=FakeAudioPreparer(),
-        media_transcriber=FakeTranscriber(),
-        job_runner_factory=lambda processor: InlineJobRunner(processor),
-    )
-
-    with TestClient(app) as test_client:
+    with _build_test_client(
+        tmp_path, **_APPROVAL_SETTINGS, access_audit_retention_days=0
+    ) as test_client:
         yield test_client

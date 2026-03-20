@@ -2,7 +2,7 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Protocol
 
-from lnkdn_transcripts.logging import get_logger
+from transcribee.logging import get_logger
 
 logger = get_logger(__name__)
 

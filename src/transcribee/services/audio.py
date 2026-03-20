@@ -3,8 +3,8 @@ from pathlib import Path
 from subprocess import CalledProcessError, run
 from typing import Protocol
 
-from lnkdn_transcripts.config import Settings
-from lnkdn_transcripts.logging import get_logger
+from transcribee.config import Settings
+from transcribee.logging import get_logger
 
 logger = get_logger(__name__)
 
