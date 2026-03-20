@@ -27,6 +27,10 @@ class JobSubmission(BaseModel):
     video_url: str
 
 
+class BatchJobSubmission(BaseModel):
+    video_urls: list[str]
+
+
 class AccessApprovalPayload(BaseModel):
     role: AccessRole = AccessRole.MEMBER
 
@@ -44,6 +48,30 @@ def create_job(payload: JobSubmission, request: Request) -> JobRead:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     current_job = _job_service(request).get_job(job.id)
     return JobRead.model_validate(current_job)
+
+
+@router.post("/jobs/batch", response_model=list[JobRead], status_code=status.HTTP_202_ACCEPTED)
+def create_batch_jobs(payload: BatchJobSubmission, request: Request) -> list[JobRead]:
+    if len(payload.video_urls) > 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Batch limit is 20 URLs per request",
+        )
+    results: list[JobRead] = []
+    for url in payload.video_urls:
+        try:
+            job = _job_service(request).create_job(url)
+            request.app.state.job_runner.enqueue(job.id)
+            current_job = _job_service(request).get_job(job.id)
+            results.append(JobRead.model_validate(current_job))
+        except InvalidVideoUrlError:
+            continue
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid URLs were submitted",
+        )
+    return results
 
 
 @router.get("/jobs", response_model=list[JobRead])

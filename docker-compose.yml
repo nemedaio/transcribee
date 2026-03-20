@@ -1,0 +1,15 @@
+services:
+  transcribee:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - transcribee-data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DATA_DIR=/app/data
+    restart: unless-stopped
+
+volumes:
+  transcribee-data:

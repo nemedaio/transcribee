@@ -3,18 +3,14 @@
 {% block body %}
 <section class="hero">
   <p class="eyebrow">Transcription job</p>
-  <h1>Job {{ job.id }}</h1>
-  <p class="lede">
-    This branch fetches media locally and transcribes it immediately in-process so the job page
-    shows the first end-to-end transcript result.
-  </p>
+  <h1>Job {{ job.id[:8] }}...</h1>
 </section>
 
 <section class="card job-card" data-job-id="{{ job.id }}">
   <dl class="job-grid">
     <div>
       <dt>Status</dt>
-      <dd id="job-status">{{ job.status.value }}</dd>
+      <dd id="job-status" class="status-badge status-{{ job.status.value }}">{{ job.status.value }}</dd>
     </div>
     <div>
       <dt>Provider</dt>
@@ -30,76 +26,123 @@
     </div>
     <div>
       <dt>Title</dt>
-      <dd>{{ job.media_title or "Pending fetch metadata" }}</dd>
-    </div>
-    <div>
-      <dt>Source media</dt>
-      <dd class="job-url">{{ job.source_media_path or "Not retained" }}</dd>
-    </div>
-    <div>
-      <dt>Audio file</dt>
-      <dd class="job-url">{{ job.media_file_path or "Pending extracted audio" }}</dd>
+      <dd id="job-title">{{ job.media_title or "Pending..." }}</dd>
     </div>
     <div>
       <dt>Duration</dt>
-      <dd>
+      <dd id="job-duration">
         {% if job.media_duration_seconds is not none %}
         {{ job.media_duration_seconds }}s
         {% else %}
-        Pending
+        Pending...
         {% endif %}
       </dd>
     </div>
     <div>
-      <dt>Fetcher</dt>
-      <dd>{{ job.extractor_name or "Pending" }}</dd>
-    </div>
-    <div>
       <dt>Language</dt>
-      <dd>{{ job.transcript_language or "Pending" }}</dd>
+      <dd id="job-language">{{ job.transcript_language or "Pending..." }}</dd>
     </div>
     <div>
       <dt>Segments</dt>
-      <dd>{{ job.transcript_segment_count or "Pending" }}</dd>
+      <dd id="job-segments">{{ job.transcript_segment_count or "Pending..." }}</dd>
     </div>
   </dl>
-  <p class="status">
-    Polling is ready through <code>/api/jobs/{{ job.id }}</code>. This branch performs an immediate
-    in-process media fetch followed by local transcription and records either a completed
-    transcript or a processing error.
-  </p>
+
+  <div id="job-progress" class="progress-bar" {% if job.status.value in ["completed", "failed"] %}style="display:none"{% endif %}>
+    <div class="progress-fill" id="progress-fill"></div>
+    <p class="progress-label" id="progress-label">Processing...</p>
+  </div>
+
   {% if job.last_error %}
-  <p class="status error-text">Last error: {{ job.last_error }}</p>
+  <p class="status error-text" id="job-error">Last error: {{ job.last_error }}</p>
   {% endif %}
-  {% if job.status.value == "failed" %}
-  <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
-    <button type="submit">Retry job</button>
-  </form>
-  {% endif %}
-  {% if job.status.value == "completed" %}
-  <p class="export-links">
-    <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
-    <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
-    <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
-    <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
-  </p>
-  {% endif %}
+
+  <div id="job-actions">
+    {% if job.status.value == "failed" %}
+    <form method="post" action="/jobs/{{ job.id }}/retry" class="inline-form">
+      <button type="submit">Retry job</button>
+    </form>
+    {% endif %}
+    {% if job.status.value == "completed" %}
+    <p class="export-links">
+      <a href="/jobs/{{ job.id }}/exports/txt">TXT</a>
+      <a href="/jobs/{{ job.id }}/exports/md">Markdown</a>
+      <a href="/jobs/{{ job.id }}/exports/srt">SRT</a>
+      <a href="/jobs/{{ job.id }}/exports/vtt">VTT</a>
+    </p>
+    {% endif %}
+  </div>
+
   <div class="transcript-block">
     <h2>Transcript</h2>
-    <pre>{{ job.transcript_text or "Transcript pending or failed." }}</pre>
+    <pre id="job-transcript">{{ job.transcript_text or "Transcript pending..." }}</pre>
   </div>
 </section>
+
 {% if job.status.value not in ["completed", "failed"] %}
 <script>
-  const pollJob = async () => {
-    const response = await fetch("/api/jobs/{{ job.id }}");
-    if (!response.ok) return;
-    const payload = await response.json();
-    if (payload.status === "completed" || payload.status === "failed") {
+(function () {
+  const jobId = "{{ job.id }}";
+  const statusEl = document.getElementById("job-status");
+  const titleEl = document.getElementById("job-title");
+  const durationEl = document.getElementById("job-duration");
+  const languageEl = document.getElementById("job-language");
+  const segmentsEl = document.getElementById("job-segments");
+  const transcriptEl = document.getElementById("job-transcript");
+  const progressEl = document.getElementById("job-progress");
+  const progressFill = document.getElementById("progress-fill");
+  const progressLabel = document.getElementById("progress-label");
+  const errorEl = document.getElementById("job-error");
+  const actionsEl = document.getElementById("job-actions");
+
+  const STEPS = {
+    queued: { pct: 10, label: "Queued — waiting to start..." },
+    fetching: { pct: 30, label: "Downloading media..." },
+    fetched: { pct: 50, label: "Media downloaded, preparing audio..." },
+    transcribing: { pct: 70, label: "Transcribing with Whisper..." },
+    completed: { pct: 100, label: "Done!" },
+    failed: { pct: 100, label: "Failed" },
+  };
+
+  function update(data) {
+    const step = STEPS[data.status] || STEPS.queued;
+    statusEl.textContent = data.status;
+    statusEl.className = "status-badge status-" + data.status;
+    progressFill.style.width = step.pct + "%";
+    progressLabel.textContent = step.label;
+
+    if (data.media_title) titleEl.textContent = data.media_title;
+    if (data.media_duration_seconds != null) durationEl.textContent = data.media_duration_seconds + "s";
+    if (data.transcript_language) languageEl.textContent = data.transcript_language;
+    if (data.transcript_segment_count != null) segmentsEl.textContent = data.transcript_segment_count;
+
+    if (data.status === "completed" || data.status === "failed") {
+      progressEl.style.display = "none";
+      if (data.transcript_text) transcriptEl.textContent = data.transcript_text;
+      if (data.last_error) {
+        if (!errorEl) {
+          const p = document.createElement("p");
+          p.className = "status error-text";
+          p.id = "job-error";
+          p.textContent = "Last error: " + data.last_error;
+          actionsEl.before(p);
+        }
+      }
+      // Reload to get server-rendered actions (retry button, export links)
       window.location.reload();
     }
-  };
-  window.setInterval(pollJob, 2000);
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch("/api/jobs/" + jobId);
+      if (res.ok) update(await res.json());
+    } catch (_) {}
+  }
+
+  setInterval(poll, 2000);
+  poll();
+})();
 </script>
 {% endif %}
 {% endblock %}

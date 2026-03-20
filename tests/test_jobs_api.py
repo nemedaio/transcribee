@@ -421,3 +421,51 @@ def test_cleanup_artifacts_clears_finished_job_files(cleanup_client: TestClient)
     refreshed = cleanup_client.get(f"/api/jobs/{created['id']}").json()
     assert refreshed["media_file_path"] is None
     assert refreshed["artifacts_cleaned_at"] is not None
+
+
+def test_batch_job_submission_creates_multiple_jobs(client: TestClient) -> None:
+    response = client.post(
+        "/api/jobs/batch",
+        json={"video_urls": [
+            "https://example.com/video/1",
+            "https://example.com/video/2",
+            "https://example.com/video/3",
+        ]},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert len(body) == 3
+    assert all(job["status"] == "completed" for job in body)
+
+
+def test_batch_job_skips_invalid_urls(client: TestClient) -> None:
+    response = client.post(
+        "/api/jobs/batch",
+        json={"video_urls": [
+            "https://example.com/video/1",
+            "not-a-valid-url",
+            "https://example.com/video/2",
+        ]},
+    )
+
+    assert response.status_code == 202
+    assert len(response.json()) == 2
+
+
+def test_batch_job_rejects_all_invalid_urls(client: TestClient) -> None:
+    response = client.post(
+        "/api/jobs/batch",
+        json={"video_urls": ["not-valid", "also-bad"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No valid URLs were submitted"}
+
+
+def test_batch_job_rejects_more_than_20_urls(client: TestClient) -> None:
+    urls = [f"https://example.com/video/{i}" for i in range(21)]
+    response = client.post("/api/jobs/batch", json={"video_urls": urls})
+
+    assert response.status_code == 400
+    assert "20" in response.json()["detail"]

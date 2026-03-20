@@ -74,6 +74,22 @@ def submit_job(request: Request, video_url: str = Form(...)) -> RedirectResponse
     return RedirectResponse(url=f"/jobs/{job.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.post("/jobs/batch")
+def submit_batch_jobs(request: Request, video_urls: str = Form(...)) -> RedirectResponse:
+    urls = [line.strip() for line in video_urls.splitlines() if line.strip()]
+    if not urls:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No URLs provided")
+    if len(urls) > 20:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Batch limit is 20 URLs")
+    for url in urls:
+        try:
+            job = request.app.state.job_service.create_job(url)
+            request.app.state.job_runner.enqueue(job.id)
+        except InvalidVideoUrlError:
+            continue
+    return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/jobs/{job_id}/retry")
 def retry_job(request: Request, job_id: str) -> RedirectResponse:
     try:

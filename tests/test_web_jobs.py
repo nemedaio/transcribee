@@ -170,13 +170,11 @@ def test_job_page_renders_created_job(client: TestClient) -> None:
     response = client.get(f"/jobs/{created['id']}")
 
     assert response.status_code == 200
-    assert created["id"] in response.text
+    assert created["id"][:8] in response.text
     assert "completed" in response.text
     assert "https://example.com/watch?v=42" in response.text
     assert "Test media title" in response.text
-    assert created["media_file_path"] in response.text
     assert created["transcript_text"] in response.text
-    assert "Not retained" in response.text
 
 
 def test_history_page_renders_recent_jobs_and_export_links(client: TestClient) -> None:

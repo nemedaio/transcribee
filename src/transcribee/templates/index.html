@@ -5,14 +5,13 @@
   <p class="eyebrow">Local-first transcript pipeline</p>
   <h1>{{ page_title }}</h1>
   <p class="lede">
-    Paste one video URL, download audio locally, transcribe with a Whisper-style model, and
-    return the transcript through a minimal web UI.
+    Paste a video URL, get a transcript. Free, local, no paywall.
   </p>
 </section>
 
 <section class="card">
   <form class="url-form" method="post" action="/jobs">
-    <label for="video-url">Video URL</label>
+    <label for="video-url">Single URL</label>
     <input
       id="video-url"
       name="video_url"
@@ -20,9 +19,21 @@
       placeholder="https://example.com/video/..."
       required
     />
-    <button type="submit">Create transcript job</button>
+    <button type="submit">Transcribe</button>
   </form>
-  <p class="status">{{ status }}</p>
+</section>
+
+<section class="card">
+  <form class="url-form" method="post" action="/jobs/batch">
+    <label for="batch-urls">Batch (one URL per line, up to 20)</label>
+    <textarea
+      id="batch-urls"
+      name="video_urls"
+      rows="5"
+      placeholder="https://linkedin.com/posts/...&#10;https://youtube.com/watch?v=...&#10;https://example.com/video/..."
+    ></textarea>
+    <button type="submit">Transcribe all</button>
+  </form>
   <p class="status"><a href="/dashboard">Open dashboard</a> · <a href="/history">Browse full history</a></p>
 
   {% if recent_jobs %}
