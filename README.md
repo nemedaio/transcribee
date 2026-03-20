@@ -1,5 +1,9 @@
 # Transcribee
 
+[![CI](https://github.com/nemedaio/transcribee/actions/workflows/ci.yml/badge.svg)](https://github.com/nemedaio/transcribee/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+
 Free, local-first video transcription. Paste a URL, get a transcript — no paywall, no cloud dependency, no data leaving your machine.
 
 Built to make LinkedIn video transcripts accessible to everyone.
@@ -15,6 +19,19 @@ Everything runs on your computer. No subscriptions, no usage limits.
 
 ## Quick start
 
+### Option 1: Docker (recommended)
+
+```bash
+git clone https://github.com/nemedaio/transcribee.git
+cd transcribee
+cp .env.example .env
+docker compose up
+```
+
+Open http://localhost:8000 and paste a video URL. That's it.
+
+### Option 2: Local Python
+
 ```bash
 git clone https://github.com/nemedaio/transcribee.git
 cd transcribee
@@ -24,13 +41,11 @@ pip install -e ".[faster-whisper]"
 uvicorn transcribee.main:app
 ```
 
-Open http://localhost:8000 and paste a video URL.
-
 > Requires Python 3.10+ and [ffmpeg](https://ffmpeg.org/) installed on your machine.
 
 ## Transcription backends
 
-Transcribee supports multiple backends. Set `TRANSCRIBER_BACKEND` in your `.env` file.
+Transcribee supports 5 backends. Set `TRANSCRIBER_BACKEND` in your `.env` file.
 
 ### Local (free, runs on your machine)
 
@@ -47,11 +62,13 @@ Transcribee supports multiple backends. Set `TRANSCRIBER_BACKEND` in your `.env`
 | `openai-api` | `pip install -e ".[openai-api]"` | `OPENAI_API_KEY` |
 | `deepgram` | `pip install -e "."` | `DEEPGRAM_API_KEY` |
 
-Example `.env` for OpenAI API:
+Example `.env` for a cloud backend:
 ```bash
 TRANSCRIBER_BACKEND=openai-api
 OPENAI_API_KEY=sk-...
 ```
+
+API keys are read from environment variables only — never stored in the database or exposed in the UI.
 
 ## Configuration
 
@@ -79,13 +96,14 @@ WHISPER_MODEL=medium    # ~1.5 GB
 ## Features
 
 - Paste any video URL and get a transcript
-- LinkedIn URL normalization (strips tracking params, validates post URLs)
+- Batch transcription — paste up to 20 URLs at once
+- Live progress tracking with animated status updates
 - Export transcripts as TXT, Markdown, SRT, VTT
-- Job dashboard with status tracking and retry controls
+- LinkedIn URL normalization (strips tracking params, validates post URLs)
+- Job dashboard with status counts and retry controls
 - Background job processing
 - Artifact retention cleanup
-- Optional Google OAuth authentication with admin access controls
-- Audit trail for access management
+- Optional Google OAuth with admin access controls and audit trail
 
 ## Running tests
 
@@ -94,16 +112,38 @@ pip install -e ".[dev,faster-whisper]"
 pytest
 ```
 
+111 tests covering the backend factory, all export formats, URL normalization, security (XSS, CSV injection, open redirect), batch endpoints, and the full job pipeline.
+
 ## API
 
 Transcribee exposes both a browser UI and a JSON API:
 
 ```
 POST /api/jobs              Submit a video URL for transcription
+POST /api/jobs/batch        Submit up to 20 URLs at once
 GET  /api/jobs              List recent jobs
 GET  /api/jobs/{id}         Get job status and transcript
 POST /api/jobs/{id}/retry   Retry a failed job
 GET  /api/dashboard         Job status counts
+```
+
+## Google auth (optional)
+
+Authentication is disabled by default. To protect your instance:
+
+```bash
+AUTH_ENABLED=true
+SESSION_SECRET_KEY=replace-with-a-long-random-string
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+Optional hardening:
+
+```bash
+GOOGLE_ALLOWED_EMAIL_DOMAINS=yourdomain.com
+GOOGLE_ADMIN_EMAILS=admin@yourdomain.com
+GOOGLE_REQUIRE_APPROVAL=true
 ```
 
 ## License
