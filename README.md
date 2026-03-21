@@ -19,7 +19,31 @@ Everything runs on your computer. No subscriptions, no usage limits.
 
 ## Quick start
 
-### Option 1: Docker (recommended)
+### CLI (fastest)
+
+```bash
+pip install transcribee[faster-whisper]
+transcribee https://www.linkedin.com/posts/some-video-post
+```
+
+That's it. Transcript prints to stdout. Save to file with `-o transcript.txt`. Export as SRT with `-f srt`.
+
+```bash
+transcribee https://linkedin.com/posts/... -o output.srt -f srt
+transcribee https://youtube.com/watch?v=... -f json
+transcribee https://example.com/video --model base  # smaller/faster model
+```
+
+### Web UI
+
+```bash
+pip install transcribee[faster-whisper]
+uvicorn transcribee.main:app
+```
+
+Open http://localhost:8000 — paste a URL or batch-paste up to 20 at once.
+
+### Docker
 
 ```bash
 git clone https://github.com/nemedaio/transcribee.git
@@ -28,20 +52,7 @@ cp .env.example .env
 docker compose up
 ```
 
-Open http://localhost:8000 and paste a video URL. That's it.
-
-### Option 2: Local Python
-
-```bash
-git clone https://github.com/nemedaio/transcribee.git
-cd transcribee
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[faster-whisper]"
-uvicorn transcribee.main:app
-```
-
-> Requires Python 3.10+ and [ffmpeg](https://ffmpeg.org/) installed on your machine.
+> Requires Python 3.10+ and [ffmpeg](https://ffmpeg.org/) on your machine (Docker includes both).
 
 ## Transcription backends
 
